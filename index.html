@@ -29,6 +29,12 @@
     <script>
       // Registro do Service Worker PWA
       if ('serviceWorker' in navigator) {
+        // Limpa caches antigos em desenvolvimento
+        if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
+          caches.keys().then((names) => {
+            names.forEach((name) => caches.delete(name));
+          });
+        }
         window.addEventListener('load', () => {
           navigator.serviceWorker.register('/sw.js').catch((err) => {
             console.warn('Falha no registro do ServiceWorker PWA:', err);

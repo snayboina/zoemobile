@@ -471,13 +471,14 @@ body {
 
 .pin-dots-container {
   display: flex;
-  gap: 16px;
+  justify-content: center;
+  gap: 12px;
   margin-bottom: 14px;
 }
 
 .pin-dot {
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
   border: 2px solid var(--border-light);
   background: transparent;

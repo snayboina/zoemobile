@@ -12,11 +12,11 @@ export interface PinKeyboardProps {
 }
 
 export const PinKeyboard: React.FC<PinKeyboardProps> = ({
-  pinLength = 4,
+  pinLength = 6,
   onComplete,
   onChange,
   loading = false,
-  title = 'Digite seu PIN de 4 dígitos',
+  title = 'Digite seu PIN de 6 dígitos',
   errorMessage,
   resetTrigger,
 }) => {

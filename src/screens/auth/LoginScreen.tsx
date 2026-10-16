@@ -129,12 +129,12 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigate }) => {
         <div className="pin-section">
           <div className="pin-section-header">
             <Lock size={16} className="text-primary" />
-            <span>PIN de Segurança (4 Dígitos)</span>
+            <span>PIN de Segurança (6 Dígitos)</span>
           </div>
 
           {!isBlocked && (
             <PinKeyboard
-              pinLength={4}
+              pinLength={6}
               onComplete={handlePinComplete}
               resetTrigger={resetTrigger}
               loading={isLoading}

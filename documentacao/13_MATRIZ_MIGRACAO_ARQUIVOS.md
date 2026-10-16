@@ -68,3 +68,21 @@ Os seguintes diretórios e arquivos da origem **não** são transferidos para ma
 - **Compilação TypeScript:** `tsc --noEmit` aprovado com 0 erros (`strict: true`).
 - **Análise Estática ESLint:** `eslint .` aprovado com 0 problemas e 0 avisos (proibição rigorosa de `any` cumprida).
 - **Testes Unitários Jest:** 3 suítes executadas, 25 testes aprovados com 100% de sucesso (`models.test.ts`, `validators.test.ts`, `formatters.test.ts`).
+
+### Componentes Visuais Industriais e UI (Fase 3 — Homologada)
+
+| Arquivo Flutter Original | Arquivo React Native Destino | Status | Observações Técnicas |
+|---|---|---|---|
+| `lib/core/app_colors.dart` | `src/theme/colors.ts` | Concluído | Identidade ZOESTOCK (Preto Profundo, Vermelho #D32F2F, Branco). |
+| `lib/features/auth/presentation/widgets/pin_keyboard.dart` | `src/components/common/PinKeyboard.tsx` | Concluído | Teclado numérico 3x4, PIN dots, zero log, haptics e anti-duplicidade. |
+| `lib/widgets/quantity_selector.dart` | `src/components/common/QuantitySelector.tsx` | Concluído | Stepper tátil 52px, entrada manual validada, teto de estoque e unidades. |
+| `lib/screens/scanner/scanner_screen.dart` | `src/components/common/BarcodeScannerModal.tsx` | Concluído | CameraView Expo 52, mira vermelha industrial, lanterna e entrada manual. |
+| `lib/widgets/alert_estoque_baixo.dart` | `src/components/common/EstoqueBaixoAlert.tsx` | Concluído | Sinalização de esgotado/baixo, modo sumário e modo individual. |
+| *(Regras de EPI)* | `src/components/common/EpiConformidadeBadge.tsx` | Concluído | Badges de CA com trava estrita em situações desconhecidas. |
+| `lib/widgets/stock_button.dart` | `src/components/common/AppButton.tsx` | Concluído | Botão industrial com variantes, loading e acessibilidade. |
+| `lib/widgets/stock_card.dart` | `src/components/common/AppCard.tsx` | Concluído | Card operacional elevado com bordas industriais. |
+| `lib/widgets/stock_input.dart` | `src/components/common/AppInput.tsx` | Concluído | Campo com foco no vermelho institucional e suporte a ícones. |
+| *(Novo Componente)* | `src/components/common/ConfirmationModal.tsx` | Concluído | Modal de confirmação operacional de alto contraste. |
+| *(Novo Componente)* | `src/components/common/EmptyState.tsx` | Concluído | Estado vazio com ilustrações e ação secundária. |
+| *(Novo Componente)* | `src/components/common/ConnectionStatusIndicator.tsx` | Concluído | Pílula visual de conectividade, offline e contagem de fila. |
+| *(Novo Teste)* | `src/__tests__/components.test.tsx` | Concluído | 21 testes automatizados cobrindo todos os requisitos visuais e táteis. |

@@ -107,8 +107,9 @@ export function deveBloquearVencido(produto: ProdutoModel): boolean {
  * Obtém o número de CA final higienizado (prioriza caNumero, fallback conformidade).
  */
 export function getNumeroCaFinal(produto: ProdutoModel): string | null {
-  if (produto.caNumero && produto.caNumero.trim() !== '' && produto.caNumero.toUpperCase() !== 'EMPTY') {
-    return produto.caNumero.trim();
+  const rawCa = produto.caNumero || produto.ca_numero || produto.numero_ca;
+  if (rawCa && rawCa.trim() !== '' && rawCa.toUpperCase() !== 'EMPTY') {
+    return rawCa.trim();
   }
   if (produto.conformidade && produto.conformidade.numero_ca != null) {
     const caConf = String(produto.conformidade.numero_ca).trim();

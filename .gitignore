@@ -1,23 +1,22 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+
+# Dependency directories
 node_modules/
-.expo/
+
+# Production build
 dist/
-npm-debug.*
-*.jks
-*.p8
-*.p12
-*.key
-*.mobileprovision
-*.orig.*
-web-build/
+dist-ssr/
+*.local
 
-# macOS
-.DS_Store
-
-# Ambientes sensíveis (PROIBIDO COMMITTAR)
+# Environment variables (CRÍTICO - NUNCA ENVIAR PARA O GIT)
 .env
 .env.local
 .env.*.local
 
-# Android build outputs
-android/app/build/
-android/.gradle/
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea

@@ -1,197 +1,101 @@
-import React from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  SafeAreaView,
-  ScrollView,
-  Platform,
-} from 'react-native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { ShieldAlert, ShieldX, Smartphone, RefreshCw, LogOut } from 'lucide-react-native';
-import { RootStackParamList } from '../../types/navigation';
+import React, { useState } from 'react';
+import { AlertTriangle, ShieldAlert, RotateCw, LogOut } from 'lucide-react';
 import { useAuthStore } from '../../store/useAuthStore';
-import { AppButton } from '../../components/common/AppButton';
-import { theme } from '../../theme';
-
-type PendingDeviceNavigationProp = NativeStackNavigationProp<RootStackParamList, 'PendingDevice'>;
 
 interface PendingDeviceScreenProps {
-  navigation: PendingDeviceNavigationProp;
+  onNavigate: (route: string) => void;
 }
 
-export const PendingDeviceScreen: React.FC<PendingDeviceScreenProps> = ({ navigation }) => {
-  const {
-    isDeviceBlocked,
-    device,
-    isLoading,
-    recheckDeviceApproval,
-    logout,
-  } = useAuthStore();
+export const PendingDeviceScreen: React.FC<PendingDeviceScreenProps> = ({ onNavigate }) => {
+  const { device, isDeviceBlocked, recheckDeviceApproval, logout } = useAuthStore();
+  const [checking, setChecking] = useState(false);
+  const [feedback, setFeedback] = useState<string | null>(null);
 
   const handleRecheck = async () => {
-    const isApproved = await recheckDeviceApproval();
-    if (isApproved) {
-      navigation.replace('DiagnosticHome');
+    setChecking(true);
+    setFeedback(null);
+    const approved = await recheckDeviceApproval();
+    setChecking(false);
+    if (approved) {
+      onNavigate('home');
+    } else {
+      setFeedback('Aparelho ainda não aprovado. Contate o administrador do sistema.');
     }
   };
 
-  const handleBackToLogin = async () => {
+  const handleLogout = async () => {
     await logout();
-    navigation.replace('Login');
+    onNavigate('login');
   };
 
   return (
-    <SafeAreaView style={styles.container} testID="pending-device-screen-container">
-      <ScrollView contentContainerStyle={styles.content}>
-        {/* Ícone de Status */}
-        <View style={styles.iconContainer}>
+    <div className="pending-screen" data-testid="pending-device-screen-container">
+      <div className="pending-card">
+        <div className="pending-icon-wrapper">
           {isDeviceBlocked ? (
-            <ShieldX size={80} color={theme.colors.danger} testID="icon-device-blocked" />
+            <ShieldAlert size={48} className="text-danger" />
           ) : (
-            <ShieldAlert size={80} color={theme.colors.warning} testID="icon-device-pending" />
+            <AlertTriangle size={48} className="text-warning" />
           )}
-        </View>
+        </div>
 
-        {/* Título Principal */}
-        <Text style={styles.title} accessibilityRole="header">
+        <h2 className="pending-title">
           {isDeviceBlocked ? 'Aparelho Bloqueado' : 'Aguardando Aprovação'}
-        </Text>
+        </h2>
 
-        {/* Explicação Operacional */}
-        <Text style={styles.description}>
+        <p className="pending-description">
           {isDeviceBlocked
-            ? 'Este dispositivo móvel foi bloqueado ou teve a autorização revogada pelo administrador. Entre em contato com a equipe de TI ou segurança patrimonial.'
-            : 'Este dispositivo móvel ainda não foi autorizado para acessar o almoxarifado. A solicitação de vínculo foi registrada e aguarda aprovação pelo administrador.'}
-        </Text>
+            ? 'Este dispositivo teve seu acesso revogado ou bloqueado pelo administrador.'
+            : 'Este aparelho foi registrado no sistema e aguarda autorização da equipe de segurança para acessar o estoque.'}
+        </p>
 
-        {/* Card com Metadados do Aparelho */}
-        <View style={styles.deviceCard} testID="device-metadata-card">
-          <View style={styles.cardHeader}>
-            <Smartphone size={18} color={theme.colors.primary} />
-            <Text style={styles.cardHeaderText}>Identificação do Dispositivo</Text>
-          </View>
+        {/* Card de Metadados */}
+        <div className="device-metadata-card" data-testid="device-metadata-card">
+          <div className="metadata-row">
+            <span className="metadata-label">ID do Aparelho:</span>
+            <span className="metadata-value">{device.deviceId}</span>
+          </div>
+          <div className="metadata-row">
+            <span className="metadata-label">Dispositivo:</span>
+            <span className="metadata-value">{device.deviceName}</span>
+          </div>
+          <div className="metadata-row">
+            <span className="metadata-label">Plataforma:</span>
+            <span className="metadata-value">{device.platform}</span>
+          </div>
+          <div className="metadata-row">
+            <span className="metadata-label">Versão do App:</span>
+            <span className="metadata-value">{device.appVersion}</span>
+          </div>
+        </div>
 
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Device ID:</Text>
-            <Text style={styles.infoValue} selectable>
-              {device.deviceId}
-            </Text>
-          </View>
+        {feedback && <div className="feedback-warning">{feedback}</div>}
 
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Fabricante:</Text>
-            <Text style={styles.infoValue}>{device.manufacturer}</Text>
-          </View>
+        <div className="pending-actions">
+          {!isDeviceBlocked && (
+            <button
+              type="button"
+              onClick={handleRecheck}
+              disabled={checking}
+              className="btn-primary-action"
+              data-testid="btn-recheck-device"
+            >
+              <RotateCw size={18} className={checking ? 'animate-spin' : ''} />
+              <span>{checking ? 'Verificando...' : 'Verificar Aprovação'}</span>
+            </button>
+          )}
 
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Modelo:</Text>
-            <Text style={styles.infoValue}>{device.model}</Text>
-          </View>
-
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Plataforma:</Text>
-            <Text style={styles.infoValue}>
-              {device.platform} ({device.androidVersion})
-            </Text>
-          </View>
-        </View>
-
-        {/* Ações Operacionais */}
-        <View style={styles.actionsContainer}>
-          {!isDeviceBlocked ? (
-            <AppButton
-              title="VERIFICAR APROVAÇÃO"
-              variant="primary"
-              loading={isLoading}
-              icon={<RefreshCw size={18} color={theme.colors.textWhite} />}
-              onPress={handleRecheck}
-              testID="btn-recheck-approval"
-            />
-          ) : null}
-
-          <AppButton
-            title="VOLTAR AO LOGIN"
-            variant={isDeviceBlocked ? 'primary' : 'secondary'}
-            icon={<LogOut size={18} color={theme.colors.textPrimary} />}
-            onPress={handleBackToLogin}
-            testID="btn-back-login"
-          />
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="btn-secondary-action"
+            data-testid="btn-back-login"
+          >
+            <LogOut size={18} />
+            <span>Voltar ao Login</span>
+          </button>
+        </div>
+      </div>
+    </div>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-  },
-  content: {
-    padding: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-    flexGrow: 1,
-  },
-  iconContainer: {
-    marginBottom: 20,
-  },
-  title: {
-    color: theme.colors.textPrimary,
-    fontSize: 24,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    marginBottom: 12,
-  },
-  description: {
-    color: theme.colors.textSecondary,
-    fontSize: 15,
-    textAlign: 'center',
-    lineHeight: 22,
-    marginBottom: 32,
-    maxWidth: 340,
-  },
-  deviceCard: {
-    width: '100%',
-    backgroundColor: theme.colors.surfaceElevated,
-    borderRadius: theme.borderRadius.md,
-    borderWidth: 1,
-    borderColor: theme.colors.borderSubtle,
-    padding: 16,
-    marginBottom: 36,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.borderSubtle,
-    paddingBottom: 8,
-    marginBottom: 12,
-  },
-  cardHeaderText: {
-    color: theme.colors.textPrimary,
-    fontWeight: 'bold',
-    fontSize: 14,
-  },
-  infoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 4,
-  },
-  infoLabel: {
-    color: theme.colors.textSecondary,
-    fontSize: 12,
-  },
-  infoValue: {
-    color: theme.colors.textPrimary,
-    fontSize: 12,
-    fontWeight: '600',
-    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
-  },
-  actionsContainer: {
-    width: '100%',
-    gap: 12,
-  },
-});

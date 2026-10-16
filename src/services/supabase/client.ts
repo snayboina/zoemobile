@@ -1,22 +1,17 @@
 import { createClient } from '@supabase/supabase-js';
-import { env } from '../../config/env';
 
-/**
- * Cliente Supabase com inicialização resiliente.
- * Se as variáveis de ambiente não estiverem configuradas,
- * o cliente utiliza valores de fallback para permitir a execução
- * em modo diagnóstico/desenvolvimento sem quebrar o bundle.
- */
-const fallbackUrl = 'https://placeholder.supabase.co';
-const fallbackKey = 'placeholder-key';
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://exemplo.supabase.co';
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'anon-key-placeholder';
 
-export const supabase = createClient(
-  env.supabaseUrl || fallbackUrl,
-  env.supabaseAnonKey || fallbackKey,
-  {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-    },
-  }
+export const isConfigured = Boolean(
+  import.meta.env.VITE_SUPABASE_URL &&
+  !import.meta.env.VITE_SUPABASE_URL.includes('exemplo.supabase.co') &&
+  import.meta.env.VITE_SUPABASE_ANON_KEY
 );
+
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+  },
+});

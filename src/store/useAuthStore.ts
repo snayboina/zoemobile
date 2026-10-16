@@ -1,31 +1,25 @@
 import { create } from 'zustand';
-import { Platform } from 'react-native';
-import { FuncionarioModel, SessionInfo, DeviceModel } from '../types/models';
+import type { FuncionarioModel, SessionInfo, DeviceModel } from '../types/models';
 import { AuthService } from '../services/supabase/authService';
 import { StorageAdapter } from '../services/offline/storageAdapter';
 
 export interface AuthState {
-  // Estados de Sessão
   isLoading: boolean;
   isAuthenticated: boolean;
   session: SessionInfo | null;
   funcionario: FuncionarioModel | null;
   empresaId: string | null;
 
-  // Estados de Dispositivo e Aprovação
   device: DeviceModel;
   isDevicePending: boolean;
   isDeviceBlocked: boolean;
 
-  // Primeiro Acesso
   hasCompletedOnboarding: boolean;
 
-  // Bloqueio por Força Bruta
   blockedUntil: Date | null;
   failedAttempts: number;
   errorMessage: string | null;
 
-  // Ações
   checkInitialState: () => Promise<'onboarding' | 'login' | 'pending_device' | 'home'>;
   login: (cracha: string, pin: string) => Promise<boolean>;
   logout: () => Promise<void>;
@@ -34,22 +28,29 @@ export interface AuthState {
   clearError: () => void;
 }
 
+const getOrCreateDeviceId = (): string => {
+  let id = localStorage.getItem('zoestock_device_id');
+  if (!id) {
+    id = 'PWA-' + Math.random().toString(36).substring(2, 9).toUpperCase();
+    localStorage.setItem('zoestock_device_id', id);
+  }
+  return id;
+};
+
 const DEFAULT_DEVICE: DeviceModel = {
-  deviceId: 'ZOE-DEV-UNKNOWN',
-  deviceName: 'Industrial Handheld',
-  manufacturer: Platform.OS === 'android' ? 'Zebra / Android' : 'Apple / iOS',
-  model: Platform.OS === 'android' ? 'TC21 / Industrial' : 'iPhone Industrial',
-  platform: Platform.OS,
-  androidVersion: String(Platform.Version),
-  appVersion: '1.0.0',
+  deviceId: getOrCreateDeviceId(),
+  deviceName: navigator.userAgent.includes('Mobile') ? 'Smartphone Mobile' : 'Terminal Desktop',
+  manufacturer: navigator.vendor || 'Google / Chrome',
+  model: 'PWA Web App',
+  platform: 'PWA / Web',
+  appVersion: '1.0.0-PWA',
+  isPWA: true,
 };
 
 let authServiceInstance = new AuthService();
-
 export const setAuthService = (service: AuthService) => {
   authServiceInstance = service;
 };
-
 export const getAuthService = () => authServiceInstance;
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -74,25 +75,22 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   checkInitialState: async () => {
     set({ isLoading: true, errorMessage: null });
     try {
-      // 1. Verifica flag de onboarding no storage local
       const onboardingDone = await StorageAdapter.getItem('onboarding_completed');
       const hasCompletedOnboarding = onboardingDone === 'true';
 
-      // 2. Tenta recuperar sessão persistida do storage local
       const rawSession = await StorageAdapter.getItem('auth_session');
       const savedEmpresaId = await StorageAdapter.getItem('auth_empresa_id');
 
       let savedSession: SessionInfo | null = null;
       if (rawSession) {
         try {
-          savedSession = JSON.parse(rawSession) as SessionInfo;
+          savedSession = JSON.parse(rawSession);
         } catch {
           savedSession = null;
         }
       }
 
       if (savedSession && savedSession.ativo) {
-        // Sessão localizada - valida integridade do dispositivo
         const state = get();
         if (state.isDeviceBlocked || state.isDevicePending) {
           set({ isLoading: false, hasCompletedOnboarding });
@@ -143,7 +141,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   login: async (cracha: string, pin: string) => {
     const { device, blockedUntil } = get();
 
-    // Trava de segurança no cliente contra envio durante bloqueio ativo
     if (blockedUntil && blockedUntil.getTime() > Date.now()) {
       set({
         errorMessage: 'Acesso bloqueado por tentativas excedidas. Aguarde o tempo restante.',
@@ -184,7 +181,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           tem_senha_movimentacao: false,
         };
 
-        // Persiste sessão segura localmente
         await StorageAdapter.setItem('auth_session', JSON.stringify(session));
         if (empId) {
           await StorageAdapter.setItem('auth_empresa_id', empId);
@@ -206,7 +202,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         return true;
       }
 
-      // Tratamento de falhas de autenticação
       let isPending = false;
       let isBlocked = false;
       let blockedTime: Date | null = null;
@@ -228,9 +223,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         }
       }
 
-      const attempts = result.tentativasRestantes !== undefined && result.tentativasRestantes !== null
-        ? Math.max(0, 5 - result.tentativasRestantes)
-        : get().failedAttempts + 1;
+      const attempts =
+        result.tentativasRestantes !== undefined && result.tentativasRestantes !== null
+          ? Math.max(0, 5 - result.tentativasRestantes)
+          : get().failedAttempts + 1;
 
       set({
         isLoading: false,
@@ -255,30 +251,24 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   logout: async () => {
-    const { funcionario, empresaId } = get();
+    const { funcionario } = get();
     set({ isLoading: true });
 
     try {
       const service = getAuthService();
-    if (funcionario && typeof service?.registrarAuditoria === 'function') {
-      try {
-        await service.registrarAuditoria('logout', funcionario.id, get().device.deviceId, {
-            cracha: funcionario.cracha,
-            nome: funcionario.nome,
+      if (funcionario && typeof service?.registrarAuditoria === 'function') {
+        try {
+          await service.registrarAuditoria('logout', funcionario.id, get().device.deviceId, {
+            motivo: 'logout_manual_usuario',
           });
         } catch {
-          // Auditoria não bloqueia logout
+          // Contingência
         }
       }
 
-      // Limpeza de sessão e dados do tenant atual
       await StorageAdapter.removeItem('auth_session');
       await StorageAdapter.removeItem('auth_empresa_id');
 
-      if (empresaId) {
-        await StorageAdapter.clearTenantData(empresaId);
-      }
-    } finally {
       set({
         isLoading: false,
         isAuthenticated: false,
@@ -286,6 +276,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         funcionario: null,
         empresaId: null,
         errorMessage: null,
+      });
+    } catch {
+      set({
+        isLoading: false,
+        isAuthenticated: false,
+        session: null,
+        funcionario: null,
+        empresaId: null,
       });
     }
   },
@@ -296,13 +294,38 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   recheckDeviceApproval: async () => {
+    const { session, device } = get();
+    if (!session) return false;
+
     set({ isLoading: true });
     try {
-      // Simula rechecagem ou consulta status da sessão existente
-      const nextRoute = await get().checkInitialState();
-      return nextRoute === 'home';
-    } finally {
+      const result = await getAuthService().validarLogin({
+        cracha: session.cracha,
+        pin: '',
+        device,
+      });
+
+      if (result.sucesso) {
+        set({
+          isLoading: false,
+          isDevicePending: false,
+          isDeviceBlocked: false,
+        });
+        return true;
+      }
+
+      if (result.erro === 'dispositivo_bloqueado') {
+        set({
+          isLoading: false,
+          isDeviceBlocked: true,
+          isDevicePending: false,
+        });
+      }
+
+      return false;
+    } catch {
       set({ isLoading: false });
+      return false;
     }
   },
 }));

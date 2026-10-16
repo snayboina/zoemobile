@@ -1,5 +1,5 @@
 import React from 'react';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, DarkTheme, Theme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types';
 import { EnvironmentDiagnosticScreen } from '../screens/diagnostic/EnvironmentDiagnosticScreen';
@@ -7,21 +7,22 @@ import { theme } from '../theme';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
+const customDarkTheme: Theme = {
+  ...DarkTheme,
+  colors: {
+    ...DarkTheme.colors,
+    primary: theme.colors.primary,
+    background: theme.colors.background,
+    card: theme.colors.surface,
+    text: theme.colors.textPrimary,
+    border: theme.colors.border,
+    notification: theme.colors.danger,
+  },
+};
+
 export const RootNavigator: React.FC = () => {
   return (
-    <NavigationContainer
-      theme={{
-        dark: true,
-        colors: {
-          primary: theme.colors.primary,
-          background: theme.colors.background,
-          card: theme.colors.surface,
-          text: theme.colors.textPrimary,
-          border: theme.colors.border,
-          notification: theme.colors.danger,
-        },
-      }}
-    >
+    <NavigationContainer theme={customDarkTheme}>
       <Stack.Navigator
         screenOptions={{
           headerShown: false,

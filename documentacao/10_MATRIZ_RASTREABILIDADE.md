@@ -1,0 +1,23 @@
+﻿# 10 â€” MATRIZ DE RASTREABILIDADE
+
+Esta matriz conecta formalmente cada componente, tela e funcionalidade do aplicativo Flutter original Ã  sua respectiva especificaÃ§Ã£o de destino em React Native, assegurando que nada seja omitido ou esquecido durante a migraÃ§Ã£o.
+
+| ID | MÃ³dulo | Funcionalidade | Origem Dart | Regras Relacionadas | Controle de SeguranÃ§a | Destino React Native | Teste ObrigatÃ³rio | Status |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **TR-001** | Splash | VerificaÃ§Ã£o de SessÃ£o & Onboarding | `splash_screen.dart` | RN-003, RN-005 | Leitura de Keystore/Keychain | `screens/SplashScreen.tsx` | Redirecionamento condicional | DOCUMENTADO â€” AGUARDANDO MIGRAÃ‡ÃƒO |
+| **TR-002** | Onboarding | Carrossel de 4 slides institucionais | `onboarding_screen.dart` | â€” | GravaÃ§Ã£o de flag segura | `screens/OnboardingScreen.tsx` | ConclusÃ£o grava flag | DOCUMENTADO â€” AGUARDANDO MIGRAÃ‡ÃƒO |
+| **TR-003** | Auth | Login com CrachÃ¡ + PIN 6 dÃ­gitos | `login_screen.dart` | RN-001, RN-002 | Hash SHA-256, Bloqueio Bruteforce | `screens/LoginScreen.tsx` | Teste com PIN incorreto e correto | DOCUMENTADO â€” AGUARDANDO MIGRAÃ‡ÃƒO |
+| **TR-004** | Auth | Bloqueio de Aparelho Pendente | `pending_device_screen.dart` | RN-003 | Device Whitelisting | `screens/PendingDeviceScreen.tsx` | Aparelho nÃ£o aprovado Ã© barrado | DOCUMENTADO â€” AGUARDANDO MIGRAÃ‡ÃƒO |
+| **TR-005** | Home | Dashboard e Monitor de Inatividade | `home_screen.dart` | RN-005, RN-006, RN-021 | Timer de inatividade (30m) | `screens/HomeScreen.tsx` | Logout apÃ³s inatividade | DOCUMENTADO â€” AGUARDANDO MIGRAÃ‡ÃƒO |
+| **TR-006** | Hardware | Scanner CÃ¢mera com Bipe Industrial | `scanner_screen.dart` | RN-018 | PermissÃ£o de CÃ¢mera | `screens/ScannerScreen.tsx` | Leitura de EAN e QR com bipe | DOCUMENTADO â€” AGUARDANDO MIGRAÃ‡ÃƒO |
+| **TR-007** | MovimentaÃ§Ã£o | Entrada de Mercadoria no Estoque | `entrada_screen.dart` | RN-006, RN-019 | Multitenant, Trigger Saldo | `screens/EntradaScreen.tsx` | Saldo incrementa no banco | DOCUMENTADO â€” AGUARDANDO MIGRAÃ‡ÃƒO |
+| **TR-008** | MovimentaÃ§Ã£o | SaÃ­da com Carrinho e Bloqueio EPI | `saida_screen.dart` | RN-007, RN-008, RN-009, RN-010 | ValidaÃ§Ã£o de CA e bloqueio manual | `screens/SaidaScreen.tsx` | Bloqueio de EPI vencido | DOCUMENTADO â€” AGUARDANDO MIGRAÃ‡ÃƒO |
+| **TR-009** | MovimentaÃ§Ã£o | Assinatura por Senha (4 dÃ­gitos) | `saida_screen.dart`, `devolucao_screen.dart` | RN-011, RN-012 | RPC validar_senha_movimentacao | `components/ModalSenhaMovimentacao.tsx` | TransaÃ§Ã£o exige PIN correto | DOCUMENTADO â€” AGUARDANDO MIGRAÃ‡ÃƒO |
+| **TR-010** | MovimentaÃ§Ã£o | DevoluÃ§Ã£o de Mercadoria | `devolucao_screen.dart` | RN-011, RN-016, RN-017 | ReordenaÃ§Ã£o por pendÃªncia | `screens/DevolucaoScreen.tsx` | Baixa de pendÃªncia do colaborador | DOCUMENTADO â€” AGUARDANDO MIGRAÃ‡ÃƒO |
+| **TR-011** | MovimentaÃ§Ã£o | Extrato Recente com Filtros | `movimentacoes_screen.dart` | RN-006 | RLS PostgREST | `screens/MovimentacoesScreen.tsx` | Filtro por tipo (EN, SA, DV) | DOCUMENTADO â€” AGUARDANDO MIGRAÃ‡ÃƒO |
+| **TR-012** | Auditoria | Consulta de Nada Consta | `nada_consta_screen.dart` | RN-016 | Rastreabilidade de DÃ©bitos | `screens/NadaConstaScreen.tsx` | EmissÃ£o de selo verde se zerado | DOCUMENTADO â€” AGUARDANDO MIGRAÃ‡ÃƒO |
+| **TR-013** | Estoque | InventÃ¡rio e Troca de Prateleira | `inventario_screen.dart` | RN-014, RN-015 | Registro de cabeÃ§alho e item | `screens/InventarioScreen.tsx` | Ajuste fÃ­sico e contÃ¡bil | DOCUMENTADO â€” AGUARDANDO MIGRAÃ‡ÃƒO |
+| **TR-014** | Estoque | Alerta de Estoque CrÃ­tico/Baixo | `estoque_baixo_screen.dart` | RN-021 | Alerta visual na Home | `screens/EstoqueBaixoScreen.tsx` | IdentificaÃ§Ã£o de itens crÃ­ticos | DOCUMENTADO â€” AGUARDANDO MIGRAÃ‡ÃƒO |
+| **TR-015** | LogÃ­stica | Consulta Bimodal de LocalizaÃ§Ã£o | `localizacao_screen.dart` | RN-022 | EndereÃ§amento FÃ­sico | `screens/LocalizacaoScreen.tsx` | Busca por item e por prateleira | DOCUMENTADO â€” AGUARDANDO MIGRAÃ‡ÃƒO |
+| **TR-016** | Offline | Fila de MovimentaÃ§Ãµes Offline | `sync_service.dart` | RN-013 | PersistÃªncia Local e Retry | `services/syncEngine.ts` | MovimentaÃ§Ã£o no Modo AviÃ£o | DOCUMENTADO â€” AGUARDANDO MIGRAÃ‡ÃƒO |
+| **TR-017** | SeguranÃ§a | Auditoria de GPS e Hardware | `auth_repository_impl.dart` | RN-004, RN-023 | Tabela audit_log, Anti-Root | `services/securityService.ts` | Captura de coordenadas GPS | DOCUMENTADO â€” AGUARDANDO MIGRAÃ‡ÃƒO |

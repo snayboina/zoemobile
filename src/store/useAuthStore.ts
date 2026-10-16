@@ -275,6 +275,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         session: null,
         funcionario: null,
         empresaId: null,
+        isDevicePending: false,
+        isDeviceBlocked: false,
         errorMessage: null,
       });
     } catch {
@@ -284,6 +286,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         session: null,
         funcionario: null,
         empresaId: null,
+        isDevicePending: false,
+        isDeviceBlocked: false,
       });
     }
   },
@@ -294,34 +298,44 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   recheckDeviceApproval: async () => {
-    const { session, device } = get();
-    if (!session) return false;
-
+    const { device } = get();
     set({ isLoading: true });
+
     try {
-      const result = await getAuthService().validarLogin({
-        cracha: session.cracha,
-        pin: '',
-        device,
-      });
+      const { supabase } = await import('../services/supabase/client');
+      const { data } = await supabase
+        .from('dispositivos')
+        .select('*')
+        .eq('device_id', device.deviceId)
+        .maybeSingle();
 
-      if (result.sucesso) {
-        set({
-          isLoading: false,
-          isDevicePending: false,
-          isDeviceBlocked: false,
-        });
-        return true;
+      if (data) {
+        const isApproved =
+          data.status === 'aprovado' ||
+          data.status === 'autorizado' ||
+          data.autorizado === true ||
+          (data.ativo === true && data.status !== 'pendente' && data.status !== 'bloqueado');
+
+        if (isApproved) {
+          set({
+            isLoading: false,
+            isDevicePending: false,
+            isDeviceBlocked: false,
+          });
+          return true;
+        }
+
+        if (data.status === 'bloqueado' || data.ativo === false) {
+          set({
+            isLoading: false,
+            isDeviceBlocked: true,
+            isDevicePending: false,
+          });
+          return false;
+        }
       }
 
-      if (result.erro === 'dispositivo_bloqueado') {
-        set({
-          isLoading: false,
-          isDeviceBlocked: true,
-          isDevicePending: false,
-        });
-      }
-
+      set({ isLoading: false });
       return false;
     } catch {
       set({ isLoading: false });

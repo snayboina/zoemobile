@@ -17,13 +17,22 @@ export const PendingDeviceScreen: React.FC<PendingDeviceScreenProps> = ({ onNavi
     const approved = await recheckDeviceApproval();
     setChecking(false);
     if (approved) {
-      onNavigate('home');
+      setFeedback('✅ Aparelho autorizado com sucesso! Redirecionando para o login...');
+      setTimeout(() => {
+        useAuthStore.setState({ isDevicePending: false, isDeviceBlocked: false });
+        onNavigate('login');
+      }, 1500);
     } else {
-      setFeedback('Aparelho ainda não aprovado. Contate o administrador do sistema.');
+      setFeedback('Aparelho ainda com status pendente. Confirme a aprovação no painel do administrador.');
     }
   };
 
   const handleLogout = async () => {
+    useAuthStore.setState({
+      isDevicePending: false,
+      isDeviceBlocked: false,
+      errorMessage: null,
+    });
     await logout();
     onNavigate('login');
   };

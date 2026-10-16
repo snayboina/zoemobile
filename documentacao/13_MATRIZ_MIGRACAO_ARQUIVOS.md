@@ -3,7 +3,7 @@
 Este documento registra a equivalência estrutural, o status de migração e a rastreabilidade direta entre o projeto original Flutter (`AppEstoque`) e o novo projeto React Native (`AppEstoque-ReactNative`).
 
 Data de Atualização: 16 de Outubro de 2026  
-Status Atual do Projeto: **FASE 2 CONCLUÍDA COM ÊXITO** (Recursos Estáticos e Modelos TypeScript 100% Homologados)
+Status Atual do Projeto: **FASE 4 CONCLUÍDA COM ÊXITO** (Autenticação, Onboarding, Dispositivo Pendente e Navegação 100% Homologados)
 
 ---
 
@@ -32,10 +32,10 @@ Status Atual do Projeto: **FASE 2 CONCLUÍDA COM ÊXITO** (Recursos Estáticos e
 | **Serviço de Autenticação Real** | `lib/services/auth_service.dart` | `src/services/supabase/authService.ts` | **MIGRADO** | Contrato integral da RPC validar_login_funcionario com telemetria |
 | **Design System & Temas** | `lib/core/app_theme.dart`, `app_colors.dart` | `src/theme/colors.ts`, `theme.ts` | **MIGRADO** | Paleta Dark Industrial adaptada para React Native |
 | **Componentes Industriais Base** | `lib/widgets/stock_*.dart` | `src/components/common/*` | **PARCIAL** | AppButton, AppCard, AppInput criados; converter PinKeyboard e QuantitySelector |
-| **Tela Splash** | `lib/screens/splash/splash_screen.dart` | `src/screens/splash/SplashScreen.tsx` | **AUSENTE** | Converter na Fase 4 |
-| **Tela Onboarding** | `lib/features/onboarding/presentation/screens/onboarding_screen.dart` | `src/screens/onboarding/OnboardingScreen.tsx` | **AUSENTE** | Converter na Fase 4 |
-| **Tela Login (Crachá + PIN + Biometria)**| `lib/screens/auth/login_screen.dart` | `src/screens/auth/LoginScreen.tsx` | **AUSENTE** | Converter na Fase 4 |
-| **Tela Dispositivo Pendente** | `lib/features/auth/presentation/screens/pending_device_screen.dart` | `src/screens/auth/PendingDeviceScreen.tsx` | **AUSENTE** | Converter na Fase 4 |
+| **Tela Splash** | `lib/screens/splash/splash_screen.dart` | `src/screens/auth/SplashScreen.tsx` | **MIGRADO** | Verificação de sessão, onboarding, device e roteamento dinâmico |
+| **Tela Onboarding** | `lib/features/onboarding/presentation/screens/onboarding_screen.dart` | `src/screens/auth/OnboardingScreen.tsx` | **MIGRADO** | Carrossel de 4 etapas industriais com fotos migradas e persistência |
+| **Tela Login (Crachá + PIN)** | `lib/screens/auth/login_screen.dart` | `src/screens/auth/LoginScreen.tsx` | **MIGRADO** | Crachá, teclado PIN virtual, força bruta, zero logs e isolamento |
+| **Tela Dispositivo Pendente** | `lib/features/auth/presentation/screens/pending_device_screen.dart` | `src/screens/auth/PendingDeviceScreen.tsx` | **MIGRADO** | Metadados do aparelho, trava operacional e rechecagem de autorização |
 | **Tela Home / Dashboard** | `lib/screens/home/home_screen.dart` | `src/screens/home/HomeScreen.tsx` | **AUSENTE** | Converter na Fase 5 |
 | **Tela Entrada de Estoque** | `lib/screens/movimentacao/entrada_screen.dart` | `src/screens/movimentacao/EntradaScreen.tsx` | **AUSENTE** | Converter na Fase 5 |
 | **Tela Saída de Estoque** | `lib/screens/movimentacao/saida_screen.dart` | `src/screens/movimentacao/SaidaScreen.tsx` | **AUSENTE** | Converter na Fase 5 (Trava de EPI com CA vencido) |
@@ -86,3 +86,18 @@ Os seguintes diretórios e arquivos da origem **não** são transferidos para ma
 | *(Novo Componente)* | `src/components/common/EmptyState.tsx` | Concluído | Estado vazio com ilustrações e ação secundária. |
 | *(Novo Componente)* | `src/components/common/ConnectionStatusIndicator.tsx` | Concluído | Pílula visual de conectividade, offline e contagem de fila. |
 | *(Novo Teste)* | `src/__tests__/components.test.tsx` | Concluído | 21 testes automatizados cobrindo todos os requisitos visuais e táteis. |
+
+
+### Telas de Autenticação e Navegação (Fase 4 — Homologada)
+
+| Arquivo Flutter Original | Arquivo React Native Destino | Status | Observações Técnicas |
+|---|---|---|---|
+| `lib/screens/splash/splash_screen.dart` | `src/screens/auth/SplashScreen.tsx` | Concluído | Verificação de sessão existente, integridade de dispositivo e primeiro acesso. |
+| `lib/features/onboarding/presentation/screens/onboarding_screen.dart` | `src/screens/auth/OnboardingScreen.tsx` | Concluído | Carrossel de 4 etapas, persistência de primeiro acesso e navegação segura. |
+| `lib/screens/auth/login_screen.dart` | `src/screens/auth/LoginScreen.tsx` | Concluído | Autenticação por crachá e PIN de 4 dígitos via teclado industrial, proteção contra força bruta. |
+| `lib/features/auth/presentation/screens/pending_device_screen.dart` | `src/screens/auth/PendingDeviceScreen.tsx` | Concluído | Bloqueio de hardware não credenciado, metadados do aparelho e revalidação. |
+| *(Diagnóstico de Staging)* | `src/screens/diagnostic/EnvironmentDiagnosticScreen.tsx` | Concluído | Tela temporária declarada explicitamente como staging com logout seguro. |
+| *(Navegação Centralizada)* | `src/navigation/RootNavigator.tsx` | Concluído | StackNavigator centralizado com tema dark e proteção de rotas. |
+| *(Gerenciamento de Sessão)* | `src/store/useAuthStore.ts` | Concluído | Zustand store com persistência de sessão, multiempresa e injeção de dependência. |
+| *(Tipos de Navegação)* | `src/types/navigation.ts` | Concluído | ParamList tipada para todas as rotas da aplicação. |
+| *(Suíte de Testes)* | `src/__tests__/auth_navigation.test.tsx` | Concluído | 14 testes automatizados cobrindo todos os fluxos e cenários de exceção. |

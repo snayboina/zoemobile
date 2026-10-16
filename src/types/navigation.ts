@@ -1,18 +1,7 @@
 export type RootStackParamList = {
-  EnvironmentDiagnostic: undefined;
-  AuthStack: undefined;
-  AppTabs: undefined;
-};
-
-export type AuthStackParamList = {
+  Splash: undefined;
   Onboarding: undefined;
-  LoginCracha: undefined;
-  CadastroSenhaInicial: { funcionarioId: string; nome: string };
-};
-
-export type AppTabsParamList = {
-  HomeDashboard: undefined;
-  ScannerEstoque: undefined;
-  MovimentacaoMenu: undefined;
-  HistoricoSincronizacao: undefined;
+  Login: undefined;
+  PendingDevice: undefined;
+  DiagnosticHome: undefined;
 };

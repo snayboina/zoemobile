@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -34,7 +34,7 @@ export interface PinKeyboardProps {
  * - NUNCA armazena nem registra o PIN em console, logs ou telemetria.
  * - Mascaramento rigoroso: apenas indicadores circulares (dots) são exibidos.
  * - Teclas táteis com dimensões industriais de 72x72px adequadas para uso operacional.
- * - Debounce e bloqueio contra envios múltiplos concorrentes.
+ * - Disparo único e síncrono de onComplete sem race conditions.
  * - Totalmente acessível com accessibilityLabel e roles.
  */
 export const PinKeyboard: React.FC<PinKeyboardProps> = ({
@@ -48,10 +48,13 @@ export const PinKeyboard: React.FC<PinKeyboardProps> = ({
 }) => {
   const [pin, setPin] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const pinRef = useRef<string>('');
+  pinRef.current = pin;
 
   // Efeito para resetar o PIN externamente quando solicitado
   useEffect(() => {
     if (resetTrigger !== undefined && resetTrigger > 0) {
+      pinRef.current = '';
       setPin('');
       setIsSubmitting(false);
     }
@@ -64,61 +67,64 @@ export const PinKeyboard: React.FC<PinKeyboardProps> = ({
     }
   }, [loading]);
 
-  const triggerHaptic = useCallback(async () => {
+  // Se houver mensagem de erro externa, limpa o pin e destrava o teclado
+  useEffect(() => {
+    if (errorMessage) {
+      pinRef.current = '';
+      setPin('');
+      setIsSubmitting(false);
+    }
+  }, [errorMessage]);
+
+  const triggerHaptic = async () => {
     try {
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     } catch {
       // Ignora silenciosamente em ambientes que não suportam haptics
     }
-  }, []);
+  };
 
-  const handleKeyPress = useCallback((digit: string) => {
+  const handleKeyPress = (digit: string) => {
     if (loading || isSubmitting) return;
+    if (pinRef.current.length >= pinLength) return;
 
-    setPin((prev) => {
-      if (prev.length >= pinLength) return prev;
-      const nextPin = prev + digit;
-      triggerHaptic();
-
-      if (onChange) {
-        onChange(nextPin);
-      }
-
-      if (nextPin.length === pinLength) {
-        setIsSubmitting(true);
-        // Dispara o callback com proteção contra duplicidade
-        setTimeout(() => {
-          onComplete(nextPin);
-        }, 50);
-      }
-
-      return nextPin;
-    });
-  }, [loading, isSubmitting, pinLength, triggerHaptic, onChange, onComplete]);
-
-  const handleBackspace = useCallback(() => {
-    if (loading || isSubmitting) return;
-
-    setPin((prev) => {
-      if (prev.length === 0) return prev;
-      const nextPin = prev.slice(0, -1);
-      triggerHaptic();
-      if (onChange) {
-        onChange(nextPin);
-      }
-      return nextPin;
-    });
-  }, [loading, isSubmitting, triggerHaptic, onChange]);
-
-  const handleClear = useCallback(() => {
-    if (loading || isSubmitting) return;
-
+    const nextPin = pinRef.current + digit;
+    pinRef.current = nextPin;
+    setPin(nextPin);
+    if (onChange) {
+      onChange(nextPin);
+    }
     triggerHaptic();
+
+    if (nextPin.length === pinLength) {
+      setIsSubmitting(true);
+      onComplete(nextPin);
+    }
+  };
+
+  const handleBackspace = () => {
+    if (loading || isSubmitting) return;
+    if (pinRef.current.length === 0) return;
+
+    const nextPin = pinRef.current.slice(0, -1);
+    pinRef.current = nextPin;
+    setPin(nextPin);
+    if (onChange) {
+      onChange(nextPin);
+    }
+    triggerHaptic();
+  };
+
+  const handleClear = () => {
+    if (loading || isSubmitting) return;
+
+    pinRef.current = '';
     setPin('');
     if (onChange) {
       onChange('');
     }
-  }, [loading, isSubmitting, triggerHaptic, onChange]);
+    triggerHaptic();
+  };
 
   const isBlocked = loading || isSubmitting;
 
@@ -307,13 +313,12 @@ const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 16,
-    width: '100%',
+    paddingVertical: 12,
   },
   title: {
-    color: theme.colors.textSecondary,
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '600',
+    color: theme.colors.textPrimary,
     marginBottom: 16,
     textAlign: 'center',
   },
@@ -321,16 +326,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 16,
-    marginBottom: 12,
+    marginBottom: 16,
   },
   dot: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
     borderWidth: 2,
-    borderColor: theme.colors.borderSubtle,
+    borderColor: theme.colors.border,
     backgroundColor: 'transparent',
+    marginHorizontal: 12,
   },
   dotFilled: {
     backgroundColor: theme.colors.primary,
@@ -338,64 +343,73 @@ const styles = StyleSheet.create({
   },
   dotError: {
     borderColor: theme.colors.danger,
-    backgroundColor: theme.colors.danger,
+    backgroundColor: 'rgba(239, 68, 68, 0.2)',
   },
   errorMessage: {
     color: theme.colors.danger,
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '500',
     marginBottom: 8,
     textAlign: 'center',
   },
   loadingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    height: 24,
-    marginBottom: 16,
+    justifyContent: 'center',
+    height: 28,
+    marginBottom: 12,
   },
   loadingText: {
     color: theme.colors.textSecondary,
     fontSize: 13,
+    marginLeft: 8,
   },
   loadingPlaceholder: {
-    height: 24,
-    marginBottom: 16,
+    height: 28,
+    marginBottom: 12,
   },
   keysGrid: {
-    width: 280,
-    gap: 12,
+    width: '100%',
+    maxWidth: 320,
   },
   row: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    justifyContent: 'space-around',
+    marginBottom: 14,
   },
   keyButton: {
     width: 72,
     height: 72,
     borderRadius: 36,
-    backgroundColor: theme.colors.surfaceElevated,
-    borderWidth: 1,
-    borderColor: theme.colors.borderSubtle,
-    alignItems: 'center',
+    backgroundColor: theme.colors.surface,
+    borderWidth: 1.5,
+    borderColor: theme.colors.border,
     justifyContent: 'center',
-  },
-  keyText: {
-    color: theme.colors.textPrimary,
-    fontSize: 26,
-    fontWeight: 'bold',
-  },
-  keyDisabled: {
-    opacity: 0.4,
+    alignItems: 'center',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
   },
   specialKeyButton: {
     width: 72,
     height: 72,
     borderRadius: 36,
-    backgroundColor: 'transparent',
-    alignItems: 'center',
+    backgroundColor: theme.colors.background,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
     justifyContent: 'center',
+    alignItems: 'center',
+  },
+  keyText: {
+    fontSize: 26,
+    fontWeight: 'bold',
+    color: theme.colors.textPrimary,
+  },
+  keyDisabled: {
+    opacity: 0.35,
+    backgroundColor: theme.colors.surfaceElevated,
   },
   specialKeyDisabled: {
     opacity: 0.25,

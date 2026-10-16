@@ -3,7 +3,7 @@
 Este documento registra a equivalência estrutural, o status de migração e a rastreabilidade direta entre o projeto original Flutter (`AppEstoque`) e o novo projeto React Native (`AppEstoque-ReactNative`).
 
 Data de Atualização: 16 de Outubro de 2026  
-Status Atual do Projeto: **FASE 1 CONCLUÍDA COM ÊXITO** (Recursos Estáticos e Modelos TypeScript 100% Homologados)
+Status Atual do Projeto: **FASE 2 CONCLUÍDA COM ÊXITO** (Recursos Estáticos e Modelos TypeScript 100% Homologados)
 
 ---
 
@@ -23,13 +23,13 @@ Status Atual do Projeto: **FASE 1 CONCLUÍDA COM ÊXITO** (Recursos Estáticos e
 | **Modelo de Sessão do Colaborador** | `lib/features/auth/domain/entities/session_info.dart` | `src/types/models.ts` (`SessionInfo`) | **MIGRADO** | Troca forçada de PIN e dados de empresa |
 | **Modelo de Resultado Auth** | `lib/features/auth/data/models/auth_result_model.dart` | `src/types/models.ts` (`AuthResultModel`) | **MIGRADO** | Bloqueio por tentativas excedidas e retorno da RPC |
 | **Modelo do Carrossel Onboarding** | `lib/features/onboarding/data/onboarding_data.dart` | `src/types/models.ts` (`OnboardingModel`) | **MIGRADO** | Tipagem do tutorial de apresentação |
-| **Serviço de Produto** | `lib/services/produto_service.dart` | `src/services/produtoService.ts` | **AUSENTE** | Converter na Fase 2 |
-| **Serviço de Movimentações** | `lib/services/movimentacao_service.dart` | `src/services/movimentacaoService.ts` | **AUSENTE** | Converter na Fase 2 |
-| **Fila Offline de Contingência** | `lib/services/sync_service.dart` | `src/services/offline/syncService.ts` | **AUSENTE** | Converter na Fase 2 com persistência segura |
-| **Serviço de Inventário** | `lib/services/inventario_service.dart` | `src/services/inventarioService.ts` | **AUSENTE** | Converter na Fase 2 |
-| **Serviço de Prateleiras** | `lib/services/prateleira_service.dart` | `src/services/prateleiraService.ts` | **AUSENTE** | Converter na Fase 2 |
-| **Serviço de Funcionários** | `lib/services/funcionario_service.dart` | `src/services/funcionarioService.ts` | **AUSENTE** | Converter na Fase 2 |
-| **Serviço de Autenticação Real** | `lib/services/auth_service.dart` | `src/services/supabase/authService.ts` | **PARCIAL** | Atualmente com mock de fundação; implementar RPC na Fase 2 |
+| **Serviço de Produto** | `lib/services/produto_service.dart` | `src/services/produtoService.ts` | **MIGRADO** | Consultas, estoque baixo, agregação e cache offline implementados |
+| **Serviço de Movimentações** | `lib/services/movimentacao_service.dart` | `src/services/movimentacaoService.ts` | **MIGRADO** | EN/SA/DV/CONSUMO, auditoria, trava de EPI vencido e cálculo de pendências |
+| **Fila Offline de Contingência** | `lib/services/sync_service.dart` | `src/services/offline/syncService.ts` | **MIGRADO** | Sincronizador persistente particionado por tenant com retentativa periódica |
+| **Serviço de Inventário** | `lib/services/inventario_service.dart` | `src/services/inventarioService.ts` | **MIGRADO** | Criação de cabeçalho e itens de contagem física |
+| **Serviço de Prateleiras** | `lib/services/prateleira_service.dart` | `src/services/prateleiraService.ts` | **MIGRADO** | Endereçamento logístico com fallback para cache |
+| **Serviço de Funcionários** | `lib/services/funcionario_service.dart` | `src/services/funcionarioService.ts` | **MIGRADO** | Consulta por crachá, hash SHA-256 e validação de PIN via RPC |
+| **Serviço de Autenticação Real** | `lib/services/auth_service.dart` | `src/services/supabase/authService.ts` | **MIGRADO** | Contrato integral da RPC validar_login_funcionario com telemetria |
 | **Design System & Temas** | `lib/core/app_theme.dart`, `app_colors.dart` | `src/theme/colors.ts`, `theme.ts` | **MIGRADO** | Paleta Dark Industrial adaptada para React Native |
 | **Componentes Industriais Base** | `lib/widgets/stock_*.dart` | `src/components/common/*` | **PARCIAL** | AppButton, AppCard, AppInput criados; converter PinKeyboard e QuantitySelector |
 | **Tela Splash** | `lib/screens/splash/splash_screen.dart` | `src/screens/splash/SplashScreen.tsx` | **AUSENTE** | Converter na Fase 4 |

@@ -20,7 +20,7 @@ import { produtoService } from '../../services/produtoService';
 import { funcionarioService } from '../../services/funcionarioService';
 import { movimentacaoService } from '../../services/movimentacaoService';
 import { OfflineQueueException } from '../../services/exceptions';
-import type { ProdutoModel, FuncionarioModel, MovimentacaoModel } from '../../types/models';
+import { isConformidadeVencida, type ProdutoModel, type FuncionarioModel, type MovimentacaoModel } from '../../types/models';
 
 interface ItemCarrinho {
   produto: ProdutoModel;
@@ -129,17 +129,10 @@ export const SaidaScreen: React.FC<SaidaScreenProps> = ({ onBack }) => {
       const extraBadges: Array<{ text: string; variant?: 'neutral' | 'success' | 'warning' | 'danger' | 'info' }> = [];
 
       if (p.conformidade?.numero_ca) {
-        const isCaVencido = p.conformidade?.data_validade_ca && new Date(p.conformidade.data_validade_ca) < new Date();
+        const isCaVencido = isConformidadeVencida(p);
         extraBadges.push({
           text: `CA: ${p.conformidade.numero_ca}${isCaVencido ? ' (VENCIDO)' : ''}`,
           variant: isCaVencido ? 'danger' : 'warning',
-        });
-      }
-
-      if (p.localizacao) {
-        extraBadges.push({
-          text: `Loc: ${p.localizacao}`,
-          variant: 'info',
         });
       }
 

@@ -48,13 +48,6 @@ export const InventarioScreen: React.FC<InventarioScreenProps> = ({ onBack }) =>
     return produtos.map((p) => {
       const extraBadges: Array<{ text: string; variant?: 'neutral' | 'success' | 'warning' | 'danger' | 'info' }> = [];
 
-      if (p.localizacao) {
-        extraBadges.push({
-          text: `Loc: ${p.localizacao}`,
-          variant: 'info',
-        });
-      }
-
       return {
         value: p.id,
         label: p.nome,
@@ -72,11 +65,11 @@ export const InventarioScreen: React.FC<InventarioScreenProps> = ({ onBack }) =>
 
   const prateleiraOptions: SearchableOption[] = useMemo(() => {
     return prateleiras.map((prat) => ({
-      value: prat.id,
+      value: prat.id || prat.codigoLocalizacao,
       label: prat.codigoLocalizacao,
       sublabel: prat.zona ? `Zona: ${prat.zona}` : undefined,
       badge: {
-        text: prat.tipo || 'Prateleira',
+        text: prat.zona ? `Zona ${prat.zona}` : 'Depósito',
         variant: 'neutral' as const,
       },
     }));

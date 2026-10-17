@@ -91,13 +91,6 @@ export const DevolucaoScreen: React.FC<DevolucaoScreenProps> = ({ onBack }) => {
         });
       }
 
-      if (p.localizacao) {
-        extraBadges.push({
-          text: `Loc: ${p.localizacao}`,
-          variant: 'info',
-        });
-      }
-
       return {
         value: p.id,
         label: p.nome,

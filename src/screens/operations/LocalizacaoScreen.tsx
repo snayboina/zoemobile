@@ -57,11 +57,11 @@ export const LocalizacaoScreen: React.FC<LocalizacaoScreenProps> = ({ onBack }) 
 
   const prateleiraOptions: SearchableOption[] = useMemo(() => {
     return prateleiras.map((prat) => ({
-      value: prat.id,
+      value: prat.id || prat.codigoLocalizacao,
       label: prat.codigoLocalizacao,
       sublabel: prat.zona ? `Zona: ${prat.zona}` : undefined,
       badge: {
-        text: prat.tipo || 'Prateleira',
+        text: prat.zona ? `Zona ${prat.zona}` : 'Depósito',
         variant: 'neutral' as const,
       },
     }));

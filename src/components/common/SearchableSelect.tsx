@@ -176,9 +176,13 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
                   <div className="empty-icon-circle">
                     <Search size={24} color="#94A3B8" />
                   </div>
-                  <strong className="empty-title">Nenhum resultado encontrado</strong>
+                  <strong className="empty-title">{emptyMessage}</strong>
                   <p className="empty-desc">
-                    Não encontramos correspondência para "<b>{searchTerm}</b>".
+                    {searchTerm ? (
+                      <>Não encontramos correspondência para "<b>{searchTerm}</b>".</>
+                    ) : (
+                      'Nenhum item disponível no momento.'
+                    )}
                   </p>
                   <button
                     type="button"

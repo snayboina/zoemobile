@@ -53,13 +53,6 @@ export const EntradaScreen: React.FC<EntradaScreenProps> = ({ onBack }) => {
         });
       }
 
-      if (p.localizacao) {
-        extraBadges.push({
-          text: `Loc: ${p.localizacao}`,
-          variant: 'info',
-        });
-      }
-
       return {
         value: p.id,
         label: p.nome,

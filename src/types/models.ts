@@ -133,6 +133,7 @@ export interface FuncionarioModel {
   cracha: string;
   nome: string;
   departamento?: string | null;
+  funcao?: string | null;
   ativo: boolean;             // banco: !excluido
   empresaId?: string | null;  // banco: empresa_id
   empresaNome?: string | null;// banco: empresa_nome
@@ -156,6 +157,7 @@ export function parseFuncionarioFromDb(json: Record<string, any>): FuncionarioMo
     cracha: json.cracha || '',
     nome: json.nome || '',
     departamento: json.departamento || null,
+    funcao: json.funcao || null,
     ativo,
     empresaId,
     empresaNome: json.empresa_nome || json.empresaNome || null,

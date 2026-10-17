@@ -1,29 +1,46 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { KeyRound, X } from 'lucide-react';
 
-interface PinModalProps {
+export interface PinModalProps {
   isOpen: boolean;
-  colaboradorNome: string;
+  title?: string;
+  subtitle?: string;
+  colaboradorNome?: string;
   isLoading?: boolean;
   errorMessage?: string | null;
   onConfirm: (pin: string) => void;
-  onCancel: () => void;
+  onCancel?: () => void;
+  onClose?: () => void;
 }
 
 export const PinModal: React.FC<PinModalProps> = ({
   isOpen,
+  title = 'Assinatura de Movimentação',
+  subtitle,
   colaboradorNome,
   isLoading = false,
   errorMessage = null,
   onConfirm,
   onCancel,
+  onClose,
 }) => {
   const [pin, setPin] = useState('');
 
+  useEffect(() => {
+    if (isOpen) {
+      setPin('');
+    }
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
+  const fechar = () => {
+    if (onCancel) onCancel();
+    else if (onClose) onClose();
+  };
+
   const handleDigit = (digit: string) => {
-    if (pin.length < 4) {
+    if (pin.length < 6) {
       setPin(prev => prev + digit);
     }
   };
@@ -38,10 +55,16 @@ export const PinModal: React.FC<PinModalProps> = ({
 
   const handleSubmit = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (pin.length === 4) {
+    if (pin.length === 6) {
       onConfirm(pin);
     }
   };
+
+  const textoSubtitulo = subtitle
+    ? subtitle
+    : colaboradorNome
+    ? `O colaborador ${colaboradorNome} deve digitar sua senha de movimentação (6 dígitos) para confirmar:`
+    : 'Digite a senha de movimentação de 6 dígitos para autorizar a operação:';
 
   return (
     <div className="modal-backdrop">
@@ -53,21 +76,20 @@ export const PinModal: React.FC<PinModalProps> = ({
           <button
             type="button"
             className="modal-close-btn"
-            onClick={onCancel}
+            onClick={fechar}
             aria-label="Fechar"
+            disabled={isLoading}
           >
             <X size={20} />
           </button>
         </div>
 
-        <h3 className="pin-modal-title">Assinatura de Movimentação</h3>
-        <p className="pin-modal-subtitle">
-          O colaborador <strong>{colaboradorNome}</strong> deve digitar sua senha de movimentação (4 números) para confirmar:
-        </p>
+        <h3 className="pin-modal-title">{title}</h3>
+        <p className="pin-modal-subtitle">{textoSubtitulo}</p>
 
-        {/* Display do PIN */}
+        {/* Display dos 6 dígitos */}
         <div className="pin-dots-row">
-          {[0, 1, 2, 3].map(idx => (
+          {[0, 1, 2, 3, 4, 5].map(idx => (
             <div
               key={idx}
               className={`pin-dot ${idx < pin.length ? 'filled' : ''}`}
@@ -81,7 +103,7 @@ export const PinModal: React.FC<PinModalProps> = ({
           </div>
         )}
 
-        {/* Teclado numérico industrial para o colaborador */}
+        {/* Teclado numérico industrial de 6 dígitos */}
         <div className="pin-keypad-grid">
           {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map(d => (
             <button
@@ -124,7 +146,7 @@ export const PinModal: React.FC<PinModalProps> = ({
           <button
             type="button"
             className="btn-modal-cancel"
-            onClick={onCancel}
+            onClick={fechar}
             disabled={isLoading}
           >
             Cancelar
@@ -133,7 +155,7 @@ export const PinModal: React.FC<PinModalProps> = ({
             type="button"
             className="btn-modal-submit"
             onClick={() => handleSubmit()}
-            disabled={isLoading || pin.length !== 4}
+            disabled={isLoading || pin.length !== 6}
           >
             {isLoading ? 'Validando...' : 'Confirmar'}
           </button>

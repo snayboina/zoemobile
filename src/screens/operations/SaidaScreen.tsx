@@ -1,5 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { CheckCircle2, AlertCircle, ShoppingCart, Trash2, User } from 'lucide-react';
+import {
+  CheckCircle2,
+  AlertCircle,
+  ShoppingCart,
+  Trash2,
+  User,
+  Package,
+    Search,
+} from 'lucide-react';
 import { Header } from '../../components/common/Header';
 import { QuantitySelector } from '../../components/operations/QuantitySelector';
 import { PinModal } from '../../components/operations/PinModal';
@@ -26,21 +34,25 @@ export const SaidaScreen: React.FC<SaidaScreenProps> = ({ onBack }) => {
   const { funcionario, session, empresaId, device } = useAuthStore();
   const empId = empresaId || session?.empresaId || funcionario?.empresa_id || '';
 
+  // Estados dos Colaboradores
   const [funcionarios, setFuncionarios] = useState<FuncionarioModel[]>([]);
   const [funcionarioSelecionado, setFuncionarioSelecionado] = useState<FuncionarioModel | null>(null);
   const [crachaBusca, setCrachaBusca] = useState<string>('');
+  const [isLoadingFuncionarios, setIsLoadingFuncionarios] = useState<boolean>(false);
 
+  // Estados dos Produtos
   const [produtos, setProdutos] = useState<ProdutoModel[]>([]);
   const [produtoSelecionado, setProdutoSelecionado] = useState<ProdutoModel | null>(null);
   const [quantidade, setQuantidade] = useState<number>(1);
   const [isConsumo, setIsConsumo] = useState<boolean>(false);
   const [observacao, setObservacao] = useState<string>('');
+  const [isLoadingProdutos, setIsLoadingProdutos] = useState<boolean>(false);
 
+  // Carrinho e Operação
   const [carrinho, setCarrinho] = useState<ItemCarrinho[]>([]);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
-  // isLoadingData
+  const [isLoadingGeral, setIsLoadingGeral] = useState<boolean>(false);
 
-  // Estados dos Modais
+  // Modais de Segurança
   const [modalEpiBlocked, setModalEpiBlocked] = useState<{ isOpen: boolean; title: string; message: string }>({
     isOpen: false,
     title: '',
@@ -51,53 +63,96 @@ export const SaidaScreen: React.FC<SaidaScreenProps> = ({ onBack }) => {
   const [pinError, setPinError] = useState<string | null>(null);
   const [isValidatingPin, setIsValidatingPin] = useState<boolean>(false);
 
+  // Mensagens
   const [mensagemSucesso, setMensagemSucesso] = useState<string | null>(null);
   const [mensagemErro, setMensagemErro] = useState<string | null>(null);
 
+  // Carregamento independente de Colaboradores e Produtos
   useEffect(() => {
-    async function carregar() {
+    let isMounted = true;
+
+    async function carregarColaboradores() {
       if (!empId) return;
-      setIsLoading(true);
+      setIsLoadingFuncionarios(true);
       try {
-        const [prods, funcs] = await Promise.all([
-          produtoService.listarProdutos(empId),
-          funcionarioService.listarFuncionarios(empId),
-        ]);
-        setProdutos(prods);
-        setFuncionarios(funcs);
+        const funcs = await funcionarioService.listarFuncionarios(empId);
+        if (isMounted) {
+          setFuncionarios(funcs);
+        }
       } catch (err: any) {
-        setMensagemErro(err.message || 'Falha ao carregar dados iniciais.');
+        console.error('Erro ao listar funcionários:', err);
       } finally {
-        setIsLoading(false);
+        if (isMounted) setIsLoadingFuncionarios(false);
       }
     }
-    carregar();
+
+    async function carregarProdutos() {
+      if (!empId) return;
+      setIsLoadingProdutos(true);
+      try {
+        const prods = await produtoService.listarProdutos(empId);
+        if (isMounted) {
+          setProdutos(prods);
+        }
+      } catch (err: any) {
+        console.error('Erro ao listar produtos:', err);
+      } finally {
+        if (isMounted) setIsLoadingProdutos(false);
+      }
+    }
+
+    carregarColaboradores();
+    carregarProdutos();
+
+    return () => {
+      isMounted = false;
+    };
   }, [empId]);
 
+  // Busca de Colaborador por Crachá
   const handleBuscarPorCracha = async () => {
-    if (!crachaBusca.trim()) return;
+    const termo = crachaBusca.trim();
+    if (!termo) return;
+    setMensagemErro(null);
+
+    // 1. Procura na lista local já carregada
+    const fLocal = funcionarios.find(
+      (x) => x.cracha.trim().toLowerCase() === termo.toLowerCase()
+    );
+    if (fLocal) {
+      setFuncionarioSelecionado(fLocal);
+      return;
+    }
+
+    // 2. Busca no Supabase
+    setIsLoadingFuncionarios(true);
     try {
-      const func = await funcionarioService.getFuncionarioByCracha(crachaBusca.trim(), empId);
+      const func = await funcionarioService.getFuncionarioByCracha(termo, empId);
       if (func) {
         setFuncionarioSelecionado(func);
-        setMensagemErro(null);
+        if (!funcionarios.some((x) => x.id === func.id)) {
+          setFuncionarios((prev) => [...prev, func]);
+        }
       } else {
         setMensagemErro('Colaborador não encontrado com este crachá.');
       }
     } catch (_) {
       setMensagemErro('Erro ao buscar colaborador.');
+    } finally {
+      setIsLoadingFuncionarios(false);
     }
   };
 
-  // Adicionar ao Carrinho com Trava RN-08
+  // Adicionar ao Carrinho com Validação de Estoque e Trava RN-08
   const handleAdicionarAoCarrinho = () => {
     setMensagemErro(null);
+
     if (!funcionarioSelecionado) {
       setMensagemErro('Selecione primeiro o colaborador receptor.');
       return;
     }
     if (!produtoSelecionado) {
-      setMensagemErro('Selecione um produto para adicionar.');
+      setMensagemErro('Selecione um produto para adicionar ao carrinho.');
       return;
     }
     if (quantidade <= 0) {
@@ -105,7 +160,7 @@ export const SaidaScreen: React.FC<SaidaScreenProps> = ({ onBack }) => {
       return;
     }
 
-    // Calcular estoque disponível considerando o que já está no carrinho
+    // Saldo no estoque
     const qtdJaNoCarrinho = carrinho
       .filter((item) => item.produto.id === produtoSelecionado.id)
       .reduce((sum, item) => sum + item.quantidade, 0);
@@ -117,36 +172,32 @@ export const SaidaScreen: React.FC<SaidaScreenProps> = ({ onBack }) => {
       return;
     }
 
-    // REGRA RN-08: BLOQUEIO DE EPI COM CA VENCIDO
+    // REGRA MANDATÓRIA RN-08: BLOQUEIO DE EPI COM CA VENCIDO
     if (produtoSelecionado.conformidade) {
       const conf = produtoSelecionado.conformidade;
-      const bloqueia = conf.bloquear_vencido !== false;
+      const bloqueia = conf.bloquear_vencido ?? true;
+      const tipo = conf.tipo_controle || 'CA';
 
-      if (bloqueia) {
-        const tipo = conf.tipo_controle || 'CA';
-        const dataStr = tipo === 'CA' ? conf.data_validade : conf.data_proxima_afericao;
+      if (conf.status_manual === 'BLOQUEADO') {
+        setModalEpiBlocked({
+          isOpen: true,
+          title: `ATENÇÃO: ${produtoSelecionado.nome}`,
+          message: 'Produto bloqueado manualmente pela segurança do trabalho.',
+        });
+        return;
+      }
 
-        if (conf.status_manual === 'BLOQUEADO') {
-          setModalEpiBlocked({
-            isOpen: true,
-            title: `ATENÇÃO: ${produtoSelecionado.nome}`,
-            message: 'Produto bloqueado manualmente pela engenharia de segurança.',
-          });
-          return;
-        }
-
-        if (dataStr) {
-          const validade = new Date(dataStr);
-          const hoje = new Date();
-          hoje.setHours(0, 0, 0, 0);
-          validade.setHours(0, 0, 0, 0);
-
-          if (validade.getTime() < hoje.getTime()) {
-            const dataFmt = `${validade.getDate().toString().padStart(2, '0')}/${(validade.getMonth() + 1).toString().padStart(2, '0')}/${validade.getFullYear()}`;
+      const dataStr = tipo === 'CA' ? conf.data_validade : conf.data_proxima_afericao;
+      if (dataStr) {
+        const validade = new Date(dataStr);
+        const agora = new Date();
+        if (validade.getTime() < agora.getTime()) {
+          const formatada = validade.toLocaleDateString('pt-BR');
+          if (bloqueia) {
             setModalEpiBlocked({
               isOpen: true,
               title: `SAÍDA BLOQUEADA: ${produtoSelecionado.nome}`,
-              message: `O controle de conformidade (${tipo}) deste EPI está vencido desde ${dataFmt}. Não é permitida a entrega.`,
+              message: `O controle de conformidade (${tipo}) deste EPI está vencido desde ${formatada}. A entrega é terminantemente proibida conforme a Norma Regulamentadora.`,
             });
             return;
           }
@@ -154,18 +205,18 @@ export const SaidaScreen: React.FC<SaidaScreenProps> = ({ onBack }) => {
       }
     }
 
-    // Adiciona ao carrinho
+    // Passou nas validações: adicionar ao carrinho
     setCarrinho((prev) => [
       ...prev,
       {
         produto: produtoSelecionado,
         quantidade,
         isConsumo,
-        observacao,
+        observacao: observacao.trim(),
       },
     ]);
 
-    // Reseta seleção de produto
+    // Limpar campos de produto mantendo o colaborador
     setProdutoSelecionado(null);
     setQuantidade(1);
     setIsConsumo(false);
@@ -206,9 +257,8 @@ export const SaidaScreen: React.FC<SaidaScreenProps> = ({ onBack }) => {
         return;
       }
 
-      // Senha confirmada, fecha modal e executa a baixa no lote
       setModalPinOpen(false);
-      setIsLoading(true);
+      setIsLoadingGeral(true);
 
       const currentUser = funcionario;
       let sucessoQtd = 0;
@@ -242,32 +292,47 @@ export const SaidaScreen: React.FC<SaidaScreenProps> = ({ onBack }) => {
         sucessoQtd++;
       }
 
-      setMensagemSucesso(`${sucessoQtd} produto(s) retirado(s) com sucesso!`);
+      setMensagemSucesso(`${sucessoQtd} produto(s) retirado(s) com sucesso para ${funcionarioSelecionado.nome}!`);
       setCarrinho([]);
       setTimeout(() => {
         onBack();
       }, 1500);
     } catch (err: any) {
       if (err instanceof OfflineQueueException) {
-        setMensagemSucesso('Dispositivo sem internet. Registros salvos offline e serão sincronizados automaticamente!');
+        setMensagemSucesso('Sem conexão à internet. Registros salvos na fila offline e sincronizados assim que a rede retornar!');
+        setCarrinho([]);
         setTimeout(() => {
           onBack();
-        }, 2000);
+        }, 1800);
       } else {
-        setMensagemErro(err.message || 'Erro ao registrar saídas.');
+        const msg = err.message || 'Erro ao registrar saída.';
+        if (msg.includes('SAIDA BLOQUEADA')) {
+          setModalEpiBlocked({
+            isOpen: true,
+            title: 'SAÍDA BLOQUEADA NO SERVIDOR',
+            message: msg.replace('SAIDA BLOQUEADA:', '').trim(),
+          });
+        } else {
+          setMensagemErro(msg);
+        }
       }
     } finally {
       setIsValidatingPin(false);
-      setIsLoading(false);
+      setIsLoadingGeral(false);
     }
   };
 
   return (
     <div className="zoestock-page-container">
-      <Header title="Saída de Produto" showBack={true} onBack={onBack} />
+      <Header
+        title="Saída de Produto"
+        showBack={true}
+        onBack={onBack}
+      />
 
-      <main className="zoestock-content-scroll">
+      <div className="page-content">
         <div className="operation-form">
+          {/* SESSÃO 1: DADOS DO COLABORADOR RECEPTOR */}
           <div className="form-section-header">
             <h3>1. Dados do Colaborador Receptor</h3>
           </div>
@@ -286,7 +351,7 @@ export const SaidaScreen: React.FC<SaidaScreenProps> = ({ onBack }) => {
             </div>
           )}
 
-          {/* Busca por crachá e dropdown */}
+          {/* Busca por Crachá */}
           <div className="search-row">
             <input
               type="text"
@@ -300,11 +365,14 @@ export const SaidaScreen: React.FC<SaidaScreenProps> = ({ onBack }) => {
               type="button"
               className="btn-search-action"
               onClick={handleBuscarPorCracha}
+              disabled={isLoadingFuncionarios}
             >
+              <Search size={16} style={{ marginRight: 4 }} />
               Buscar
             </button>
           </div>
 
+          {/* Dropdown de Colaboradores */}
           <div className="form-group" style={{ marginTop: '10px' }}>
             <select
               className="select-input"
@@ -312,38 +380,54 @@ export const SaidaScreen: React.FC<SaidaScreenProps> = ({ onBack }) => {
               onChange={(e) => {
                 const f = funcionarios.find((x) => x.id === e.target.value);
                 setFuncionarioSelecionado(f || null);
+                if (f) {
+                  setCrachaBusca(f.cracha);
+                  setMensagemErro(null);
+                }
               }}
             >
-              <option value="">Ou selecione da lista de colaboradores...</option>
+              <option value="">
+                {isLoadingFuncionarios
+                  ? 'Carregando colaboradores...'
+                  : `Selecione na lista (${funcionarios.length} disponíveis)...`}
+              </option>
               {funcionarios.map((f) => (
                 <option key={f.id} value={f.id}>
-                  {f.cracha} - {f.nome}
+                  {f.cracha} - {f.nome} {f.departamento ? `(${f.departamento})` : ''}
                 </option>
               ))}
             </select>
           </div>
 
+          {/* Card do Colaborador Selecionado */}
           {funcionarioSelecionado && (
-            <div className="colaborador-card">
-              <div className="colaborador-icon">
+            <div className="colaborador-card" style={{ borderLeft: '4px solid #D32F2F', backgroundColor: '#fdf7f7' }}>
+              <div className="colaborador-icon" style={{ background: '#FFEBEE' }}>
                 <User size={24} color="#D32F2F" />
               </div>
               <div className="colaborador-body">
-                <div className="colaborador-name">{funcionarioSelecionado.nome}</div>
+                <div className="colaborador-name" style={{ color: '#B71C1C', fontWeight: 'bold' }}>
+                  {funcionarioSelecionado.nome}
+                </div>
                 <div className="colaborador-meta">
-                  <span>Crachá: {funcionarioSelecionado.cracha}</span>
+                  <span><strong>Crachá:</strong> {funcionarioSelecionado.cracha}</span>
                   {funcionarioSelecionado.departamento && (
-                    <span> | {funcionarioSelecionado.departamento}</span>
+                    <span> | <strong>Setor:</strong> {funcionarioSelecionado.departamento}</span>
+                  )}
+                  {funcionarioSelecionado.funcao && (
+                    <span> | <strong>Função:</strong> {funcionarioSelecionado.funcao}</span>
                   )}
                 </div>
               </div>
             </div>
           )}
 
+          {/* SESSÃO 2: SELECIONAR PRODUTO PARA SAÍDA */}
           <div className="form-section-header" style={{ marginTop: '24px' }}>
             <h3>2. Selecionar Produto para Saída</h3>
           </div>
 
+          {/* Dropdown de Produtos */}
           <div className="form-group">
             <label className="field-label">Produto *</label>
             <select
@@ -352,17 +436,58 @@ export const SaidaScreen: React.FC<SaidaScreenProps> = ({ onBack }) => {
               onChange={(e) => {
                 const found = produtos.find((p) => p.id === e.target.value);
                 setProdutoSelecionado(found || null);
+                if (found) {
+                  setIsConsumo(found.consumo || false);
+                  setQuantidade(1);
+                  setMensagemErro(null);
+                }
               }}
             >
-              <option value="">Selecione o produto...</option>
-              {produtos.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.codigo ? `${p.codigo} - ` : ''}{p.nome} (Estoque: {p.estoqueAtual})
-                </option>
-              ))}
+              <option value="">
+                {isLoadingProdutos
+                  ? 'Carregando produtos...'
+                  : `Selecione o produto (${produtos.length} cadastrados)...`}
+              </option>
+              {produtos.map((p) => {
+                const caInfo = p.conformidade?.numero_ca ? ` [CA: ${p.conformidade.numero_ca}]` : '';
+                return (
+                  <option key={p.id} value={p.id}>
+                    {p.codigo ? `${p.codigo} - ` : ''}{p.nome}{caInfo} (Estoque: {p.estoqueAtual} UN)
+                  </option>
+                );
+              })}
             </select>
           </div>
 
+          {/* Card Detalhes do Produto Selecionado */}
+          {produtoSelecionado && (
+            <div className="colaborador-card" style={{ borderLeft: '4px solid #1976D2', backgroundColor: '#F0F7FF', marginTop: 8 }}>
+              <div className="colaborador-icon" style={{ background: '#E3F2FD' }}>
+                <Package size={24} color="#1976D2" />
+              </div>
+              <div className="colaborador-body">
+                <div className="colaborador-name" style={{ color: '#0D47A1', fontWeight: 'bold' }}>
+                  {produtoSelecionado.nome}
+                </div>
+                <div className="colaborador-meta" style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: 4 }}>
+                  <span><strong>Estoque Disponível:</strong> {produtoSelecionado.estoqueAtual} UN</span>
+                  <span>| <strong>Tipo:</strong> {produtoSelecionado.consumo ? 'Consumo' : 'Equipamento/EPI'}</span>
+                  {produtoSelecionado.conformidade?.numero_ca && (
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                      | <strong>CA:</strong> {produtoSelecionado.conformidade.numero_ca}
+                      {produtoService.isEpiVencido(produtoSelecionado) ? (
+                        <span style={{ color: '#D32F2F', fontWeight: 'bold' }}>(VENCIDO)</span>
+                      ) : (
+                        <span style={{ color: '#2E7D32', fontWeight: 'bold' }}>(Válido)</span>
+                      )}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Seletor de Quantidade */}
           <QuantitySelector
             label="Quantidade Solicitada *"
             value={quantidade}
@@ -370,20 +495,24 @@ export const SaidaScreen: React.FC<SaidaScreenProps> = ({ onBack }) => {
             onChange={setQuantidade}
           />
 
-          <div className="checkbox-group" style={{ marginTop: '12px' }}>
+          {/* Checkbox Consumo */}
+          <div className="checkbox-row" style={{ marginTop: '12px' }}>
             <label className="checkbox-label">
               <input
                 type="checkbox"
                 checked={isConsumo}
                 onChange={(e) => setIsConsumo(e.target.checked)}
               />
-              <div className="checkbox-text">
+              <div>
                 <strong>Produto para consumo?</strong>
-                <span>Se marcado, não ficará como pendência na ficha do usuário.</span>
+                <p className="checkbox-subtext">
+                  Se marcado, não ficará como pendência na ficha do usuário.
+                </p>
               </div>
             </label>
           </div>
 
+          {/* Observação */}
           <div className="form-group" style={{ marginTop: '12px' }}>
             <label className="field-label">Observação</label>
             <input
@@ -395,78 +524,90 @@ export const SaidaScreen: React.FC<SaidaScreenProps> = ({ onBack }) => {
             />
           </div>
 
+          {/* Botão Adicionar ao Carrinho */}
           <button
             type="button"
             className="btn-add-cart"
             onClick={handleAdicionarAoCarrinho}
-            disabled={!produtoSelecionado}
+            style={{ marginTop: '14px' }}
           >
             + Adicionar ao Carrinho de Saída
           </button>
 
-          {/* Carrinho de Saída */}
-          <div className="form-section-header" style={{ marginTop: '32px' }}>
-            <div className="cart-header-title">
+          {/* SESSÃO 3: CARRINHO DE SAÍDA */}
+          <div className="cart-section" style={{ marginTop: '28px' }}>
+            <div className="cart-header">
               <ShoppingCart size={20} color="#D32F2F" />
-              <h3>Carrinho de Saída ({carrinho.length} itens)</h3>
+              <h3>Carrinho de Saída ({carrinho.length} {carrinho.length === 1 ? 'item' : 'itens'})</h3>
             </div>
-          </div>
 
-          {carrinho.length === 0 ? (
-            <div className="cart-empty-box">Nenhum produto adicionado ao carrinho ainda.</div>
-          ) : (
-            <div className="cart-items-list">
-              {carrinho.map((item, idx) => (
-                <div key={idx} className="cart-item-card">
-                  <div className="cart-item-details">
-                    <div className="cart-item-name">{item.produto.nome}</div>
-                    <div className="cart-item-qty">
-                      Quantidade: <strong>{item.quantidade} UN</strong>
-                      {item.isConsumo && <span className="consumo-badge">Consumo</span>}
+            {carrinho.length === 0 ? (
+              <div className="cart-empty">
+                Nenhum produto adicionado ao carrinho ainda.
+              </div>
+            ) : (
+              <div className="cart-items-list">
+                {carrinho.map((item, idx) => (
+                  <div key={idx} className="cart-item-card">
+                    <div className="cart-item-info">
+                      <div className="cart-item-name">{item.produto.nome}</div>
+                      <div className="cart-item-meta">
+                        <span>Qtd: <strong>{item.quantidade} UN</strong></span>
+                        <span> • {item.isConsumo ? 'Consumo' : 'Equipamento'}</span>
+                        {item.observacao && <span> • Obs: {item.observacao}</span>}
+                      </div>
                     </div>
+                    <button
+                      type="button"
+                      className="btn-remove-item"
+                      onClick={() => handleRemoverItem(idx)}
+                      title="Remover item"
+                    >
+                      <Trash2 size={18} />
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    className="cart-item-remove"
-                    onClick={() => handleRemoverItem(idx)}
-                    aria-label="Remover item"
-                  >
-                    <Trash2 size={18} color="#D32F2F" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
+                ))}
 
-          {/* Botão Finalizar */}
-          <button
-            type="button"
-            className="btn-primary-action red"
-            onClick={handleIniciarFinalizacao}
-            disabled={isLoading || carrinho.length === 0 || !funcionarioSelecionado}
-            style={{ marginTop: '24px' }}
-          >
-            {isLoading ? 'Registrando...' : 'Confirmar Saída com Senha do Colaborador'}
-          </button>
+                <button
+                  type="button"
+                  className="btn-submit-action"
+                  onClick={handleIniciarFinalizacao}
+                  disabled={isLoadingGeral}
+                  style={{ marginTop: '16px' }}
+                >
+                  {isLoadingGeral
+                    ? 'Gravando movimentações...'
+                    : `Confirmar Saída (${carrinho.length} itens)`}
+                </button>
+              </div>
+            )}
+          </div>
         </div>
-      </main>
+      </div>
 
-      {/* Modal de Bloqueio de EPI */}
+      {/* MODAL TRAVA RN-08 (EPI COM CA VENCIDO) */}
       <EpiBlockedModal
         isOpen={modalEpiBlocked.isOpen}
         title={modalEpiBlocked.title}
         message={modalEpiBlocked.message}
-        onClose={() => setModalEpiBlocked((prev) => ({ ...prev, isOpen: false }))}
+        onClose={() => setModalEpiBlocked({ isOpen: false, title: '', message: '' })}
       />
 
-      {/* Modal de Assinatura por PIN */}
+      {/* MODAL DE CONFIRMAÇÃO DE SENHA / PIN DE 6 DÍGITOS */}
       <PinModal
         isOpen={modalPinOpen}
-        colaboradorNome={funcionarioSelecionado?.nome || 'Colaborador'}
-        isLoading={isValidatingPin}
+        title="Confirmação com PIN"
+        subtitle={
+          funcionarioSelecionado
+            ? `Digite a senha de 6 dígitos de ${funcionarioSelecionado.nome} para autorizar a retirada:`
+            : 'Digite a senha de 6 dígitos:'
+        }
         errorMessage={pinError}
+        isLoading={isValidatingPin}
         onConfirm={handleConfirmarComPin}
-        onCancel={() => setModalPinOpen(false)}
+        onClose={() => {
+          if (!isValidatingPin) setModalPinOpen(false);
+        }}
       />
     </div>
   );

@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { Search, AlertTriangle, CheckCircle2, User, WifiOff, QrCode } from 'lucide-react';
 import { Header } from '../../components/common/Header';
 import { QrCodeScannerModal } from '../../components/common/QrCodeScannerModal';
+import { SearchableSelect, type SearchableOption } from '../../components/common/SearchableSelect';
 import { useAuthStore } from '../../store/useAuthStore';
 import { funcionarioService } from '../../services/funcionarioService';
 import { movimentacaoService } from '../../services/movimentacaoService';
@@ -36,6 +37,17 @@ export const NadaConstaScreen: React.FC<NadaConstaScreenProps> = ({ onBack }) =>
     }
     carregarLista();
   }, [empId]);
+
+  const funcionarioOptions: SearchableOption[] = useMemo(() => {
+    return funcionarios.map((f) => ({
+      value: f.id,
+      label: f.nome,
+      code: f.cracha ? `Crachá: ${f.cracha}` : undefined,
+      sublabel: f.departamento || f.funcao || undefined,
+      type: 'colaborador' as const,
+      badge: f.funcao ? { text: f.funcao, variant: 'neutral' as const } : undefined,
+    }));
+  }, [funcionarios]);
 
   const executarConsulta = async (func: FuncionarioModel) => {
     setErrorMessage(null);
@@ -144,25 +156,22 @@ export const NadaConstaScreen: React.FC<NadaConstaScreenProps> = ({ onBack }) =>
           </div>
 
           <div className="form-group" style={{ marginTop: '8px' }}>
-            <select
-              className="select-input"
+            <SearchableSelect
+              title="Selecione o Colaborador"
+              placeholder={`Selecione o colaborador (${funcionarios.length} disponíveis)...`}
+              searchPlaceholder="Pesquisar por nome, crachá ou setor..."
+              emptyMessage="Nenhum colaborador encontrado com este termo."
+              options={funcionarioOptions}
               value={funcionarioConsultado?.id || ''}
-              onChange={(e) => {
-                const f = funcionarios.find((x) => x.id === e.target.value);
+              onChange={(selectedId) => {
+                const f = funcionarios.find((x) => x.id === selectedId);
                 if (f) {
                   setCracha(f.cracha);
                   executarConsulta(f);
                 }
               }}
               disabled={isOffline || isLoading}
-            >
-              <option value="">Selecione o colaborador ({funcionarios.length} disponíveis)...</option>
-              {funcionarios.map((f) => (
-                <option key={f.id} value={f.id}>
-                  {f.cracha} - {f.nome}
-                </option>
-              ))}
-            </select>
+            />
           </div>
 
           {funcionarioConsultado && (

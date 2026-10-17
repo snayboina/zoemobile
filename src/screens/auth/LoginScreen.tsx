@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Lock, AlertCircle, Clock, ShieldCheck, QrCode } from 'lucide-react';
+import { Lock, AlertCircle, Clock, ShieldCheck, QrCode, CreditCard, X } from 'lucide-react';
 import { useAuthStore } from '../../store/useAuthStore';
 import { PinKeyboard } from '../../components/common/PinKeyboard';
 import { QrCodeScannerModal } from '../../components/common/QrCodeScannerModal';
@@ -85,37 +85,58 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigate }) => {
           <p className="login-subtitle">Controle de Estoque e Operação Industrial</p>
         </div>
 
-        {/* Campo Matrícula com Botão de Scanner QR Code */}
-        <div className="form-group">
-          <label htmlFor="input-cracha" className="form-label">
-            Crachá / Matrícula
-          </label>
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-            <input
-              id="input-cracha"
-              data-testid="input-cracha"
-              type="text"
-              className={`form-input ${crachaError ? 'input-error' : ''}`}
-              placeholder="Digite o crachá ou matrícula"
-              value={cracha}
-              onChange={(e) => {
-                setCracha(e.target.value.toUpperCase());
-                if (crachaError) setCrachaError(null);
-              }}
-              disabled={isLoading || isBlocked}
-              autoComplete="off"
-              autoCapitalize="characters"
-              style={{ flex: 1 }}
-            />
+        {/* Campo Matrícula Impactante com Botão de Scanner QR Code */}
+        <div className="login-matricula-group">
+          <div className="login-matricula-label">
+            <label htmlFor="input-cracha">
+              Crachá / Matrícula
+            </label>
+            <span className="login-matricula-label-tag">Identificação</span>
+          </div>
+
+          <div className="login-matricula-row">
+            <div className={`login-matricula-input-wrapper ${crachaError ? 'has-error' : ''}`}>
+              <div className="login-matricula-leading-icon">
+                <CreditCard size={22} />
+              </div>
+              <input
+                id="input-cracha"
+                data-testid="input-cracha"
+                type="text"
+                className="login-matricula-input"
+                placeholder="DIGITE SEU CRACHÁ"
+                value={cracha}
+                onChange={(e) => {
+                  setCracha(e.target.value.toUpperCase());
+                  if (crachaError) setCrachaError(null);
+                }}
+                disabled={isLoading || isBlocked}
+                autoComplete="off"
+                autoCapitalize="characters"
+              />
+              {cracha && !isLoading && !isBlocked && (
+                <button
+                  type="button"
+                  className="login-matricula-clear-btn"
+                  onClick={() => {
+                    setCracha('');
+                    if (crachaError) setCrachaError(null);
+                  }}
+                  title="Limpar campo"
+                >
+                  <X size={18} />
+                </button>
+              )}
+            </div>
+
             <button
               type="button"
-              className="btn-qr-action"
+              className="login-qr-scanner-btn"
               onClick={() => setIsScannerCrachaOpen(true)}
               disabled={isLoading || isBlocked}
               title="Escanear QR Code ou Código de Barras do Crachá"
-              style={{ height: '46px', width: '46px' }}
             >
-              <QrCode size={22} />
+              <QrCode size={26} />
             </button>
           </div>
           {crachaError && <span className="field-error-text">{crachaError}</span>}

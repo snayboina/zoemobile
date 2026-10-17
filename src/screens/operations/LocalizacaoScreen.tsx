@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { Search, MapPin, Package } from 'lucide-react';
 import { Header } from '../../components/common/Header';
+import { SearchableSelect, type SearchableOption } from '../../components/common/SearchableSelect';
 import { useAuthStore } from '../../store/useAuthStore';
 import { produtoService } from '../../services/produtoService';
 import { prateleiraService } from '../../services/prateleiraService';
@@ -39,6 +40,32 @@ export const LocalizacaoScreen: React.FC<LocalizacaoScreenProps> = ({ onBack }) 
     }
     carregar();
   }, [empId]);
+
+  const produtoOptions: SearchableOption[] = useMemo(() => {
+    return produtos.map((p) => ({
+      value: p.id,
+      label: p.nome,
+      code: p.codigo ? p.codigo : undefined,
+      sublabel: p.categoria || undefined,
+      type: 'produto' as const,
+      badge: {
+        text: `Estoque: ${p.estoqueAtual ?? 0} UN`,
+        variant: (p.estoqueAtual ?? 0) <= 0 ? 'danger' : 'neutral',
+      },
+    }));
+  }, [produtos]);
+
+  const prateleiraOptions: SearchableOption[] = useMemo(() => {
+    return prateleiras.map((prat) => ({
+      value: prat.id,
+      label: prat.codigoLocalizacao,
+      sublabel: prat.zona ? `Zona: ${prat.zona}` : undefined,
+      badge: {
+        text: prat.tipo || 'Prateleira',
+        variant: 'neutral' as const,
+      },
+    }));
+  }, [prateleiras]);
 
   const handleSelecionarPrateleira = async (pratId: string) => {
     const prat = prateleiras.find((p) => p.id === pratId) || null;
@@ -94,21 +121,18 @@ export const LocalizacaoScreen: React.FC<LocalizacaoScreenProps> = ({ onBack }) 
             <div>
               <div className="form-group">
                 <label className="field-label">Selecione o Produto</label>
-                <select
-                  className="select-input"
+                <SearchableSelect
+                  title="Localizar Produto"
+                  placeholder="Selecione o produto para ver a localização"
+                  searchPlaceholder="Pesquisar por nome ou código..."
+                  emptyMessage="Nenhum produto encontrado."
+                  options={produtoOptions}
                   value={produtoSelecionado?.id || ''}
-                  onChange={(e) => {
-                    const found = produtos.find((p) => p.id === e.target.value);
+                  onChange={(selectedId) => {
+                    const found = produtos.find((p) => p.id === selectedId);
                     setProdutoSelecionado(found || null);
                   }}
-                >
-                  <option value="">Selecione o produto</option>
-                  {produtos.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.codigo ? `${p.codigo} - ` : ''}{p.nome}
-                    </option>
-                  ))}
-                </select>
+                />
               </div>
 
               {produtoSelecionado && (
@@ -130,18 +154,15 @@ export const LocalizacaoScreen: React.FC<LocalizacaoScreenProps> = ({ onBack }) 
             <div>
               <div className="form-group">
                 <label className="field-label">Selecione a Prateleira</label>
-                <select
-                  className="select-input"
+                <SearchableSelect
+                  title="Consultar Prateleira"
+                  placeholder="Selecione a prateleira..."
+                  searchPlaceholder="Pesquisar por código de prateleira ou zona..."
+                  emptyMessage="Nenhuma prateleira encontrada."
+                  options={prateleiraOptions}
                   value={prateleiraSelecionada?.id || ''}
-                  onChange={(e) => handleSelecionarPrateleira(e.target.value)}
-                >
-                  <option value="">Selecione a prateleira</option>
-                  {prateleiras.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.codigoLocalizacao} - Zona: {p.zona}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(selectedId) => handleSelecionarPrateleira(selectedId)}
+                />
               </div>
 
               {prateleiraSelecionada && (

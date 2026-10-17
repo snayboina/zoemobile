@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { ArrowRight, CheckCircle2, AlertCircle, Package } from 'lucide-react';
 import { Header } from '../../components/common/Header';
 import { QuantitySelector } from '../../components/operations/QuantitySelector';
+import { SearchableSelect, type SearchableOption } from '../../components/common/SearchableSelect';
 import { useAuthStore } from '../../store/useAuthStore';
 import { produtoService } from '../../services/produtoService';
 import { movimentacaoService } from '../../services/movimentacaoService';
@@ -40,6 +41,39 @@ export const EntradaScreen: React.FC<EntradaScreenProps> = ({ onBack }) => {
     }
     carregar();
   }, [empId]);
+
+  const produtoOptions: SearchableOption[] = useMemo(() => {
+    return produtos.map((p) => {
+      const extraBadges: Array<{ text: string; variant?: 'neutral' | 'success' | 'warning' | 'danger' | 'info' }> = [];
+
+      if (p.conformidade?.numero_ca) {
+        extraBadges.push({
+          text: `CA: ${p.conformidade.numero_ca}`,
+          variant: 'warning',
+        });
+      }
+
+      if (p.localizacao) {
+        extraBadges.push({
+          text: `Loc: ${p.localizacao}`,
+          variant: 'info',
+        });
+      }
+
+      return {
+        value: p.id,
+        label: p.nome,
+        code: p.codigo ? p.codigo : undefined,
+        sublabel: p.categoria || undefined,
+        type: 'produto' as const,
+        badge: {
+          text: `Estoque Atual: ${p.estoqueAtual ?? 0} UN`,
+          variant: (p.estoqueAtual ?? 0) <= 0 ? 'danger' : 'neutral',
+        },
+        extraBadges,
+      };
+    });
+  }, [produtos]);
 
   const handleConfirmar = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -134,26 +168,20 @@ export const EntradaScreen: React.FC<EntradaScreenProps> = ({ onBack }) => {
           {/* Seleção do Produto */}
           <div className="form-group">
             <label className="field-label">Selecione o Produto *</label>
-            {isLoadingProdutos ? (
-              <div className="loading-placeholder">Carregando produtos...</div>
-            ) : (
-              <select
-                className="select-input"
-                value={produtoSelecionado?.id || ''}
-                onChange={(e) => {
-                  const found = produtos.find((p) => p.id === e.target.value);
-                  setProdutoSelecionado(found || null);
-                }}
-                required
-              >
-                <option value="">Selecione o produto</option>
-                {produtos.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.codigo ? `${p.codigo} - ` : ''}{p.nome}
-                  </option>
-                ))}
-              </select>
-            )}
+            <SearchableSelect
+              title="Selecione o Produto"
+              placeholder={isLoadingProdutos ? 'Carregando produtos...' : 'Selecione o produto para entrada'}
+              searchPlaceholder="Pesquisar por nome, código ou CA..."
+              emptyMessage="Nenhum produto encontrado com este termo."
+              options={produtoOptions}
+              value={produtoSelecionado?.id || ''}
+              onChange={(selectedId) => {
+                const found = produtos.find((p) => p.id === selectedId);
+                setProdutoSelecionado(found || null);
+              }}
+              disabled={isLoadingProdutos}
+              required
+            />
           </div>
 
           {/* Detalhes do Produto Selecionado */}

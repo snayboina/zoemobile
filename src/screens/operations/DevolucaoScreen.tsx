@@ -1,9 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { AlertCircle, CheckCircle2, User, Search, RefreshCw, QrCode } from 'lucide-react';
 import { Header } from '../../components/common/Header';
 import { QuantitySelector } from '../../components/operations/QuantitySelector';
 import { PinModal } from '../../components/operations/PinModal';
 import { QrCodeScannerModal } from '../../components/common/QrCodeScannerModal';
+import { SearchableSelect, type SearchableOption } from '../../components/common/SearchableSelect';
 import { useAuthStore } from '../../store/useAuthStore';
 import { produtoService } from '../../services/produtoService';
 import { funcionarioService } from '../../services/funcionarioService';
@@ -67,6 +68,50 @@ export const DevolucaoScreen: React.FC<DevolucaoScreenProps> = ({ onBack }) => {
     carregar();
     return () => { isMounted = false; };
   }, [empId]);
+
+  const funcionarioOptions: SearchableOption[] = useMemo(() => {
+    return funcionarios.map((f) => ({
+      value: f.id,
+      label: f.nome,
+      code: f.cracha ? `Crachá: ${f.cracha}` : undefined,
+      sublabel: f.departamento || f.funcao || undefined,
+      type: 'colaborador' as const,
+      badge: f.funcao ? { text: f.funcao, variant: 'neutral' as const } : undefined,
+    }));
+  }, [funcionarios]);
+
+  const produtoOptions: SearchableOption[] = useMemo(() => {
+    return produtos.map((p) => {
+      const extraBadges: Array<{ text: string; variant?: 'neutral' | 'success' | 'warning' | 'danger' | 'info' }> = [];
+
+      if (p.conformidade?.numero_ca) {
+        extraBadges.push({
+          text: `CA: ${p.conformidade.numero_ca}`,
+          variant: 'warning',
+        });
+      }
+
+      if (p.localizacao) {
+        extraBadges.push({
+          text: `Loc: ${p.localizacao}`,
+          variant: 'info',
+        });
+      }
+
+      return {
+        value: p.id,
+        label: p.nome,
+        code: p.codigo ? p.codigo : undefined,
+        sublabel: p.categoria || undefined,
+        type: 'produto' as const,
+        badge: {
+          text: `Estoque Atual: ${p.estoqueAtual ?? 0} UN`,
+          variant: (p.estoqueAtual ?? 0) <= 0 ? 'danger' : 'neutral',
+        },
+        extraBadges,
+      };
+    });
+  }, [produtos]);
 
   const carregarPendencias = async (funcId: string) => {
     setIsLoadingPendencias(true);
@@ -280,11 +325,15 @@ export const DevolucaoScreen: React.FC<DevolucaoScreenProps> = ({ onBack }) => {
           </div>
 
           <div className="form-group" style={{ marginTop: '8px' }}>
-            <select
-              className="select-input"
+            <SearchableSelect
+              title="Selecione o Colaborador"
+              placeholder={isLoadingFuncionarios ? 'Carregando colaboradores...' : 'Selecione o colaborador'}
+              searchPlaceholder="Pesquisar por nome, crachá ou setor..."
+              emptyMessage="Nenhum colaborador encontrado com este termo."
+              options={funcionarioOptions}
               value={funcionarioSelecionado?.id || ''}
-              onChange={(e) => {
-                const f = funcionarios.find((x) => x.id === e.target.value);
+              onChange={(selectedId) => {
+                const f = funcionarios.find((x) => x.id === selectedId);
                 setFuncionarioSelecionado(f || null);
                 if (f) {
                   setCrachaBusca(f.cracha);
@@ -292,18 +341,8 @@ export const DevolucaoScreen: React.FC<DevolucaoScreenProps> = ({ onBack }) => {
                   setMensagemErro(null);
                 }
               }}
-            >
-              <option value="">
-                {isLoadingFuncionarios
-                  ? 'Carregando colaboradores...'
-                  : 'Selecione o colaborador'}
-              </option>
-              {funcionarios.map((f) => (
-                <option key={f.id} value={f.id}>
-                  {f.cracha} - {f.nome} {f.departamento ? `(${f.departamento})` : ''}
-                </option>
-              ))}
-            </select>
+              disabled={isLoadingFuncionarios}
+            />
           </div>
 
           {funcionarioSelecionado && (
@@ -378,21 +417,19 @@ export const DevolucaoScreen: React.FC<DevolucaoScreenProps> = ({ onBack }) => {
 
           <div className="form-group">
             <label className="field-label">Produto *</label>
-            <select
-              className="select-input"
+            <SearchableSelect
+              title="Selecione o Produto"
+              placeholder="Selecione o produto a devolver"
+              searchPlaceholder="Pesquisar por nome, código ou CA..."
+              emptyMessage="Nenhum produto encontrado com este termo."
+              options={produtoOptions}
               value={produtoSelecionado?.id || ''}
-              onChange={(e) => {
-                const found = produtos.find((p) => p.id === e.target.value);
+              onChange={(selectedId) => {
+                const found = produtos.find((p) => p.id === selectedId);
                 setProdutoSelecionado(found || null);
               }}
-            >
-              <option value="">Selecione o produto</option>
-              {produtos.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.codigo ? `${p.codigo} - ` : ''}{p.nome}
-                </option>
-              ))}
-            </select>
+              required
+            />
           </div>
 
           <QuantitySelector

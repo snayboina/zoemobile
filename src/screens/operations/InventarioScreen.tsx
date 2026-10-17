@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { CheckCircle2, AlertCircle } from 'lucide-react';
 import { Header } from '../../components/common/Header';
+import { SearchableSelect, type SearchableOption } from '../../components/common/SearchableSelect';
 import { useAuthStore } from '../../store/useAuthStore';
 import { produtoService } from '../../services/produtoService';
 import { prateleiraService } from '../../services/prateleiraService';
@@ -42,6 +43,44 @@ export const InventarioScreen: React.FC<InventarioScreenProps> = ({ onBack }) =>
     }
     carregar();
   }, [empId]);
+
+  const produtoOptions: SearchableOption[] = useMemo(() => {
+    return produtos.map((p) => {
+      const extraBadges: Array<{ text: string; variant?: 'neutral' | 'success' | 'warning' | 'danger' | 'info' }> = [];
+
+      if (p.localizacao) {
+        extraBadges.push({
+          text: `Loc: ${p.localizacao}`,
+          variant: 'info',
+        });
+      }
+
+      return {
+        value: p.id,
+        label: p.nome,
+        code: p.codigo ? p.codigo : undefined,
+        sublabel: p.categoria || undefined,
+        type: 'produto' as const,
+        badge: {
+          text: `Estoque Sistema: ${p.estoqueAtual ?? 0} UN`,
+          variant: (p.estoqueAtual ?? 0) <= 0 ? 'danger' : 'neutral',
+        },
+        extraBadges,
+      };
+    });
+  }, [produtos]);
+
+  const prateleiraOptions: SearchableOption[] = useMemo(() => {
+    return prateleiras.map((prat) => ({
+      value: prat.id,
+      label: prat.codigoLocalizacao,
+      sublabel: prat.zona ? `Zona: ${prat.zona}` : undefined,
+      badge: {
+        text: prat.tipo || 'Prateleira',
+        variant: 'neutral' as const,
+      },
+    }));
+  }, [prateleiras]);
 
   const diferenca = produtoSelecionado ? quantidadeReal - produtoSelecionado.estoqueAtual : 0;
 
@@ -147,23 +186,20 @@ export const InventarioScreen: React.FC<InventarioScreenProps> = ({ onBack }) =>
 
           <div className="form-group">
             <label className="field-label">Selecione o Produto *</label>
-            <select
-              className="select-input"
+            <SearchableSelect
+              title="Selecione o Produto"
+              placeholder="Selecione o produto para inventário"
+              searchPlaceholder="Pesquisar por nome, código ou localização..."
+              emptyMessage="Nenhum produto encontrado com este termo."
+              options={produtoOptions}
               value={produtoSelecionado?.id || ''}
-              onChange={(e) => {
-                const found = produtos.find((p) => p.id === e.target.value);
+              onChange={(selectedId) => {
+                const found = produtos.find((p) => p.id === selectedId);
                 setProdutoSelecionado(found || null);
                 if (found) setQuantidadeReal(found.estoqueAtual);
               }}
               required
-            >
-              <option value="">Selecione o produto</option>
-              {produtos.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.codigo ? `${p.codigo} - ` : ''}{p.nome}
-                </option>
-              ))}
-            </select>
+            />
           </div>
 
           {produtoSelecionado && (
@@ -213,21 +249,18 @@ export const InventarioScreen: React.FC<InventarioScreenProps> = ({ onBack }) =>
           {mudarPrateleira && (
             <div className="form-group" style={{ marginTop: '12px' }}>
               <label className="field-label">Prateleira Destino</label>
-              <select
-                className="select-input"
+              <SearchableSelect
+                title="Selecione a Prateleira Destino"
+                placeholder="Selecione a prateleira destino..."
+                searchPlaceholder="Pesquisar por código ou zona..."
+                emptyMessage="Nenhuma prateleira encontrada."
+                options={prateleiraOptions}
                 value={prateleiraDestino?.id || ''}
-                onChange={(e) => {
-                  const prat = prateleiras.find((p) => p.id === e.target.value);
+                onChange={(selectedId) => {
+                  const prat = prateleiras.find((p) => p.id === selectedId);
                   setPrateleiraDestino(prat || null);
                 }}
-              >
-                <option value="">Selecione a prateleira destino...</option>
-                {prateleiras.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.codigoLocalizacao} ({p.zona})
-                  </option>
-                ))}
-              </select>
+              />
             </div>
           )}
 

@@ -1,25 +1,30 @@
 export class StorageAdapter {
   private static PREFIX = 'zoestock_pwa_';
 
-  static async setItem(key: string, value: string): Promise<void> {
+  private static buildKey(key: string, empresaId?: string): string {
+    const tenant = empresaId ? `${empresaId}_` : '';
+    return `${this.PREFIX}${tenant}${key}`;
+  }
+
+  static async setItem(key: string, value: string, empresaId?: string): Promise<void> {
     try {
-      localStorage.setItem(this.PREFIX + key, value);
+      localStorage.setItem(this.buildKey(key, empresaId), value);
     } catch (e) {
       console.warn('Erro ao salvar no localStorage:', e);
     }
   }
 
-  static async getItem(key: string): Promise<string | null> {
+  static async getItem(key: string, empresaId?: string): Promise<string | null> {
     try {
-      return localStorage.getItem(this.PREFIX + key);
+      return localStorage.getItem(this.buildKey(key, empresaId));
     } catch {
       return null;
     }
   }
 
-  static async removeItem(key: string): Promise<void> {
+  static async removeItem(key: string, empresaId?: string): Promise<void> {
     try {
-      localStorage.removeItem(this.PREFIX + key);
+      localStorage.removeItem(this.buildKey(key, empresaId));
     } catch (e) {
       console.warn('Erro ao remover do localStorage:', e);
     }

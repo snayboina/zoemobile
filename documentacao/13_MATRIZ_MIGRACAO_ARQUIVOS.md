@@ -3,7 +3,7 @@
 Este documento registra a equivalência estrutural, o status de migração e a rastreabilidade direta entre o projeto original Flutter (`AppEstoque`) e o novo projeto React Native (`AppEstoque-ReactNative`).
 
 Data de Atualização: 16 de Outubro de 2026  
-Status Atual do Projeto: **FASE 4 CONCLUÍDA COM ÊXITO** (Autenticação, Onboarding, Dispositivo Pendente e Navegação 100% Homologados)
+Status Atual do Projeto: **FASE 5 CONCLUÍDA COM ÊXITO** (Operações de Estoque 100% Migradas e Integradas ao Supabase com Design Lock Oficial) (Autenticação, Onboarding, Dispositivo Pendente e Navegação 100% Homologados)
 
 ---
 
@@ -36,16 +36,16 @@ Status Atual do Projeto: **FASE 4 CONCLUÍDA COM ÊXITO** (Autenticação, Onboa
 | **Tela Onboarding** | `lib/features/onboarding/presentation/screens/onboarding_screen.dart` | `src/screens/auth/OnboardingScreen.tsx` | **MIGRADO** | Carrossel de 4 etapas industriais com fotos migradas e persistência |
 | **Tela Login (Crachá + PIN)** | `lib/screens/auth/login_screen.dart` | `src/screens/auth/LoginScreen.tsx` | **MIGRADO** | Crachá, teclado PIN virtual, força bruta, zero logs e isolamento |
 | **Tela Dispositivo Pendente** | `lib/features/auth/presentation/screens/pending_device_screen.dart` | `src/screens/auth/PendingDeviceScreen.tsx` | **MIGRADO** | Metadados do aparelho, trava operacional e rechecagem de autorização |
-| **Tela Home / Dashboard** | `lib/screens/home/home_screen.dart` | `src/screens/home/HomeScreen.tsx` | **AUSENTE** | Converter na Fase 5 |
-| **Tela Entrada de Estoque** | `lib/screens/movimentacao/entrada_screen.dart` | `src/screens/movimentacao/EntradaScreen.tsx` | **AUSENTE** | Converter na Fase 5 |
-| **Tela Saída de Estoque** | `lib/screens/movimentacao/saida_screen.dart` | `src/screens/movimentacao/SaidaScreen.tsx` | **AUSENTE** | Converter na Fase 5 (Trava de EPI com CA vencido) |
-| **Tela Devolução de Estoque** | `lib/screens/movimentacao/devolucao_screen.dart` | `src/screens/movimentacao/DevolucaoScreen.tsx` | **AUSENTE** | Converter na Fase 5 |
-| **Tela Histórico de Movimentações** | `lib/screens/movimentacao/movimentacoes_screen.dart` | `src/screens/movimentacao/MovimentacoesScreen.tsx` | **AUSENTE** | Converter na Fase 5 |
-| **Tela Nada Consta / Certidão** | `lib/screens/movimentacao/nada_consta_screen.dart` | `src/screens/movimentacao/NadaConstaScreen.tsx` | **AUSENTE** | Converter na Fase 5 |
-| **Tela Inventário Físico** | `lib/screens/inventario/inventario_screen.dart` | `src/screens/inventario/InventarioScreen.tsx` | **AUSENTE** | Converter na Fase 6 |
-| **Tela Localização / Prateleiras** | `lib/screens/localizacao/localizacao_screen.dart` | `src/screens/localizacao/LocalizacaoScreen.tsx` | **AUSENTE** | Converter na Fase 6 |
+| **Tela Home / Dashboard** | `lib/screens/home/home_screen.dart` | `src/screens/home/HomeScreen.tsx` | **MIGRADO** | Preservado padrão visual institucional (cabeçalho vermelho e 8 cards) |
+| **Tela Entrada de Estoque** | `lib/screens/movimentacao/entrada_screen.dart` | `src/screens/operations/EntradaScreen.tsx` | **MIGRADO** | Busca de produto, quantidade, observação e confirmação transacional |
+| **Tela Saída de Estoque** | `lib/screens/movimentacao/saida_screen.dart` | `src/screens/operations/SaidaScreen.tsx` | **MIGRADO** | Carrinho de saída, trava RN-08 (CA vencido/bloqueado) e senha PIN de 4 dígitos |
+| **Tela Devolução de Estoque** | `lib/screens/movimentacao/devolucao_screen.dart` | `src/screens/operations/DevolucaoScreen.tsx` | **MIGRADO** | Consulta de pendências líquidas, devolução e confirmação com PIN |
+| **Tela Histórico de Movimentações** | `lib/screens/movimentacao/movimentacoes_screen.dart` | `src/screens/operations/MovimentacoesScreen.tsx` | **MIGRADO** | Histórico filtrável (TODOS, EN, SA, DV) com data/hora em pt-BR |
+| **Tela Nada Consta / Certidão** | `lib/screens/movimentacao/nada_consta_screen.dart` | `src/screens/operations/NadaConstaScreen.tsx` | **MIGRADO** | Verificação de pendências no Supabase e bloqueio estrito em modo offline |
+| **Tela Inventário Físico** | `lib/screens/inventario/inventario_screen.dart` | `src/screens/operations/InventarioScreen.tsx` | **MIGRADO** | Contagem física, cálculo de divergência e ajuste transacional |
+| **Tela Localização / Prateleiras** | `lib/screens/localizacao/localizacao_screen.dart` | `src/screens/operations/LocalizacaoScreen.tsx` | **MIGRADO** | Busca por produto e consulta de prateleiras/zonas |
 | **Tela Alerta de Estoque Baixo** | `lib/screens/estoque/estoque_baixo_screen.dart` | `src/screens/estoque/EstoqueBaixoScreen.tsx` | **AUSENTE** | Converter na Fase 6 |
-| **Tela Scanner Câmera (Barcode/QR)**| `lib/screens/scanner/scanner_screen.dart` | `src/screens/scanner/ScannerScreen.tsx` | **AUSENTE** | Converter na Fase 6 |
+| **Tela Scanner Câmera (Barcode/QR)**| `lib/screens/scanner/scanner_screen.dart` | `src/screens/operations/ScannerScreen.tsx` | **MIGRADO** | Mira vermelha industrial, suporte a leitores ópticos e digitação manual |
 
 ---
 

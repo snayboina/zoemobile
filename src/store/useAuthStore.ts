@@ -97,14 +97,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           return 'pending_device';
         }
 
+        const sessionEmpId = savedSession.empresaId || (savedSession as any).empresa_id || savedEmpresaId || null;
         const funcionarioModel: FuncionarioModel = {
           id: savedSession.id,
           cracha: savedSession.cracha,
           nome: savedSession.nome,
           ativo: savedSession.ativo,
-          empresaId: savedSession.empresaId,
-          empresaNome: savedSession.empresaNome,
-          empresa_id: savedSession.empresaId || '',
+          empresaId: sessionEmpId,
+          empresaNome: savedSession.empresaNome || (savedSession as any).empresa_nome,
+          empresa_id: sessionEmpId || '',
           permite_login_app: true,
           tem_senha_movimentacao: false,
         };
@@ -114,7 +115,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           isAuthenticated: true,
           session: savedSession,
           funcionario: funcionarioModel,
-          empresaId: savedEmpresaId || savedSession.empresaId || null,
+          empresaId: sessionEmpId,
           hasCompletedOnboarding,
         });
         return 'home';
@@ -167,16 +168,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       if (result.sucesso && result.funcionario) {
         const session = result.funcionario;
-        const empId = session.empresaId || null;
+        const empId = session.empresaId || (session as any).empresa_id || null;
 
         const funcionarioModel: FuncionarioModel = {
           id: session.id,
           cracha: session.cracha,
           nome: session.nome,
           ativo: session.ativo,
-          empresaId: session.empresaId,
-          empresaNome: session.empresaNome,
-          empresa_id: session.empresaId || '',
+          empresaId: empId,
+          empresaNome: session.empresaNome || (session as any).empresa_nome,
+          empresa_id: empId || '',
           permite_login_app: true,
           tem_senha_movimentacao: false,
         };

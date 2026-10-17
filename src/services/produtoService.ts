@@ -209,46 +209,54 @@ export class ProdutoService {
     ];
   }
 
-  async getProdutoByCodigo(codigo: string, empresaId: string): Promise<ProdutoModel | null> {
+  async getProdutoByCodigo(codigo: string, empresaId?: string): Promise<ProdutoModel | null> {
     const codLimpo = (codigo || '').trim();
     if (!codLimpo) return null;
 
     try {
-      let data: any = null;
-      let error: any = null;
-
-      // 1. Tentar busca com joins
-      const resFull = await this.client
-        .from('produtos')
-        .select('*, estoque_atual(*), produto_conformidade(*)')
-        .or(`codigo_barras.eq.${codLimpo},codigo.eq.${codLimpo}`)
-        .eq('excluido', false)
-        .eq('empresa_id', empresaId)
-        .maybeSingle();
-
-      data = resFull.data;
-      error = resFull.error;
-
-      // 2. Fallback para select simples
-      if (error) {
-        const resSimple = await this.client
+      // 1. Tentar busca com joins para a empresa especificada
+      if (empresaId && empresaId.trim() !== '') {
+        const resEmp = await this.client
           .from('produtos')
-          .select('*')
-          .or(`codigo_barras.eq.${codLimpo},codigo.eq.${codLimpo}`)
+          .select('*, estoque_atual(*), produto_conformidade(*)')
+          .or(`codigo_barras.eq.${codLimpo},id.eq.${codLimpo}`)
           .eq('excluido', false)
           .eq('empresa_id', empresaId)
           .maybeSingle();
-        data = resSimple.data;
+
+        if (resEmp.data) {
+          return this.mapProdutoJson(resEmp.data);
+        }
       }
 
-      if (data) {
-        return this.mapProdutoJson(data);
+      // 2. Busca geral no catálogo do Supabase (sem restrição de empresa)
+      const resFull = await this.client
+        .from('produtos')
+        .select('*, estoque_atual(*), produto_conformidade(*)')
+        .or(`codigo_barras.eq.${codLimpo},id.eq.${codLimpo}`)
+        .eq('excluido', false)
+        .maybeSingle();
+
+      if (resFull.data) {
+        return this.mapProdutoJson(resFull.data);
+      }
+
+      // 3. Fallback para select simples
+      const resSimple = await this.client
+        .from('produtos')
+        .select('*')
+        .or(`codigo_barras.eq.${codLimpo},id.eq.${codLimpo}`)
+        .eq('excluido', false)
+        .maybeSingle();
+
+      if (resSimple.data) {
+        return this.mapProdutoJson(resSimple.data);
       }
     } catch (_) {}
 
-    // 3. Fallback no cache ou produtos de contingência
-    const cache = await this.sync.obterProdutosCache(empresaId);
-    const lista = cache.length > 0 ? cache : this.getContingenciaProdutos(empresaId);
+    // 4. Fallback no cache ou produtos de contingência
+    const cache = await this.sync.obterProdutosCache(empresaId || 'default');
+    const lista = cache.length > 0 ? cache : this.getContingenciaProdutos(empresaId || 'default');
     const found = lista.find(
       (p) =>
         p.codigo === codLimpo ||
@@ -258,60 +266,97 @@ export class ProdutoService {
     return found || null;
   }
 
-  async listarProdutos(empresaId: string): Promise<ProdutoModel[]> {
+  async listarProdutos(empresaId?: string): Promise<ProdutoModel[]> {
     try {
-      // 1. Tentar query completa com joins no Supabase
-      const { data, error } = await this.client
+      const empFiltro = (empresaId || '').trim();
+
+      // 1. Se informada empresaId, tentar carregar produtos vinculados a esta empresa
+      if (empFiltro) {
+        const { data, error } = await this.client
+          .from('produtos')
+          .select('*, estoque_atual(*), produto_conformidade(*)')
+          .eq('excluido', false)
+          .eq('empresa_id', empFiltro)
+          .order('nome', { ascending: true });
+
+        if (!error && data && data.length > 0) {
+          const list = (data as Array<Record<string, any>>).map((json) =>
+            this.mapProdutoJson(json)
+          );
+          await this.sync.salvarProdutosCache(list, empFiltro);
+          return list;
+        }
+
+        // Se query com join falhou, tentar select simples na empresa
+        if (error) {
+          const resSimples = await this.client
+            .from('produtos')
+            .select('*')
+            .eq('excluido', false)
+            .eq('empresa_id', empFiltro)
+            .order('nome', { ascending: true });
+
+          if (!resSimples.error && resSimples.data && resSimples.data.length > 0) {
+            const list = (resSimples.data as Array<Record<string, any>>).map((json) =>
+              this.mapProdutoJson(json)
+            );
+            await this.sync.salvarProdutosCache(list, empFiltro);
+            return list;
+          }
+        }
+      }
+
+      // 2. Busca geral de todos os produtos ativos cadastrados no Supabase
+      // (Utilizado quando a empresa do operador não possui itens próprios ou empresaId é genérico)
+      const resGeral = await this.client
         .from('produtos')
         .select('*, estoque_atual(*), produto_conformidade(*)')
         .eq('excluido', false)
-        .eq('empresa_id', empresaId)
         .order('nome', { ascending: true });
 
-      if (!error && data && data.length > 0) {
-        const list = (data as Array<Record<string, any>>).map((json) =>
+      if (!resGeral.error && resGeral.data && resGeral.data.length > 0) {
+        const list = (resGeral.data as Array<Record<string, any>>).map((json) =>
           this.mapProdutoJson(json)
         );
-        await this.sync.salvarProdutosCache(list, empresaId);
+        await this.sync.salvarProdutosCache(list, empFiltro || 'default');
         return list;
       }
 
-      // 2. Se a query com join falhou, tentar select simples em produtos
-      if (error) {
-        const resSimples = await this.client
-          .from('produtos')
-          .select('*')
-          .eq('excluido', false)
-          .eq('empresa_id', empresaId)
-          .order('nome', { ascending: true });
+      // 3. Fallback select simples geral
+      const resGeralSimples = await this.client
+        .from('produtos')
+        .select('*')
+        .eq('excluido', false)
+        .order('nome', { ascending: true });
 
-        if (!resSimples.error && resSimples.data && resSimples.data.length > 0) {
-          const list = (resSimples.data as Array<Record<string, any>>).map((json) =>
-            this.mapProdutoJson(json)
-          );
-          await this.sync.salvarProdutosCache(list, empresaId);
-          return list;
-        }
+      if (!resGeralSimples.error && resGeralSimples.data && resGeralSimples.data.length > 0) {
+        const list = (resGeralSimples.data as Array<Record<string, any>>).map((json) =>
+          this.mapProdutoJson(json)
+        );
+        await this.sync.salvarProdutosCache(list, empFiltro || 'default');
+        return list;
       }
-    } catch (_) {}
+    } catch (err) {
+      console.warn('Falha na consulta ao Supabase de produtos:', err);
+    }
 
-    // 3. Fallback: obter cache salvo ou catálogo de contingência da empresa
-    const cache = await this.sync.obterProdutosCache(empresaId);
+    // 4. Fallback: obter cache salvo ou catálogo de contingência
+    const cache = await this.sync.obterProdutosCache(empresaId || 'default');
     if (cache.length > 0) {
       return cache;
     }
 
-    const contingencia = this.getContingenciaProdutos(empresaId);
-    await this.sync.salvarProdutosCache(contingencia, empresaId);
+    const contingencia = this.getContingenciaProdutos(empresaId || 'default');
+    await this.sync.salvarProdutosCache(contingencia, empresaId || 'default');
     return contingencia;
   }
 
-  async getProdutosByPrateleira(prateleiraId: string, empresaId: string): Promise<ProdutoModel[]> {
+  async getProdutosByPrateleira(prateleiraId: string, empresaId?: string): Promise<ProdutoModel[]> {
     const todos = await this.listarProdutos(empresaId);
     return todos.filter((p) => p.prateleiraId === prateleiraId || p.prateleira_id === prateleiraId);
   }
 
-  async getProdutosComEstoqueBaixo(empresaId: string): Promise<ProdutoModel[]> {
+  async getProdutosComEstoqueBaixo(empresaId?: string): Promise<ProdutoModel[]> {
     const produtos = await this.listarProdutos(empresaId);
     return produtos.filter((p) => p.estoqueAtual <= p.estoqueMinimo);
   }

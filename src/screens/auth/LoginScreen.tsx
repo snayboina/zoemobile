@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Lock, AlertCircle, Clock, ShieldCheck } from 'lucide-react';
+import { Lock, AlertCircle, Clock, ShieldCheck, QrCode } from 'lucide-react';
 import { useAuthStore } from '../../store/useAuthStore';
 import { PinKeyboard } from '../../components/common/PinKeyboard';
+import { QrCodeScannerModal } from '../../components/common/QrCodeScannerModal';
 
 interface LoginScreenProps {
   onNavigate: (route: string) => void;
@@ -12,6 +13,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigate }) => {
   const [crachaError, setCrachaError] = useState<string | null>(null);
   const [resetTrigger, setResetTrigger] = useState<number>(0);
   const [countdownSeconds, setCountdownSeconds] = useState<number>(0);
+  const [isScannerCrachaOpen, setIsScannerCrachaOpen] = useState<boolean>(false);
 
   const {
     login,
@@ -83,26 +85,39 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigate }) => {
           <p className="login-subtitle">Controle de Estoque e Operação Industrial</p>
         </div>
 
-        {/* Campo Matrícula */}
+        {/* Campo Matrícula com Botão de Scanner QR Code */}
         <div className="form-group">
           <label htmlFor="input-cracha" className="form-label">
             Crachá / Matrícula
           </label>
-          <input
-            id="input-cracha"
-            data-testid="input-cracha"
-            type="text"
-            className={`form-input ${crachaError ? 'input-error' : ''}`}
-            placeholder="Digite o número da sua matrícula"
-            value={cracha}
-            onChange={(e) => {
-              setCracha(e.target.value.toUpperCase());
-              if (crachaError) setCrachaError(null);
-            }}
-            disabled={isLoading || isBlocked}
-            autoComplete="off"
-            autoCapitalize="characters"
-          />
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <input
+              id="input-cracha"
+              data-testid="input-cracha"
+              type="text"
+              className={`form-input ${crachaError ? 'input-error' : ''}`}
+              placeholder="Digite o crachá ou matrícula"
+              value={cracha}
+              onChange={(e) => {
+                setCracha(e.target.value.toUpperCase());
+                if (crachaError) setCrachaError(null);
+              }}
+              disabled={isLoading || isBlocked}
+              autoComplete="off"
+              autoCapitalize="characters"
+              style={{ flex: 1 }}
+            />
+            <button
+              type="button"
+              className="btn-qr-action"
+              onClick={() => setIsScannerCrachaOpen(true)}
+              disabled={isLoading || isBlocked}
+              title="Escanear QR Code ou Código de Barras do Crachá"
+              style={{ height: '46px', width: '46px' }}
+            >
+              <QrCode size={22} />
+            </button>
+          </div>
           {crachaError && <span className="field-error-text">{crachaError}</span>}
         </div>
 
@@ -148,6 +163,18 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigate }) => {
           <span>Autenticação Criptografada • ZOESTOCK PWA</span>
         </div>
       </div>
+
+      {/* Modal de Leitura de QR Code / Código de Barras do Crachá */}
+      <QrCodeScannerModal
+        isOpen={isScannerCrachaOpen}
+        title="Escanear Crachá para Login"
+        subtitle="Aponte a câmera para o QR Code ou código do crachá para preenchimento imediato da matrícula."
+        onClose={() => setIsScannerCrachaOpen(false)}
+        onScan={(matricula) => {
+          setCracha(matricula.toUpperCase());
+          if (crachaError) setCrachaError(null);
+        }}
+      />
     </div>
   );
 };

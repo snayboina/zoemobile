@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { AlertCircle, CheckCircle2, User, Search, RefreshCw } from 'lucide-react';
+import { AlertCircle, CheckCircle2, User, Search, RefreshCw, QrCode } from 'lucide-react';
 import { Header } from '../../components/common/Header';
 import { QuantitySelector } from '../../components/operations/QuantitySelector';
 import { PinModal } from '../../components/operations/PinModal';
+import { QrCodeScannerModal } from '../../components/common/QrCodeScannerModal';
 import { useAuthStore } from '../../store/useAuthStore';
 import { produtoService } from '../../services/produtoService';
 import { funcionarioService } from '../../services/funcionarioService';
@@ -24,6 +25,7 @@ export const DevolucaoScreen: React.FC<DevolucaoScreenProps> = ({ onBack }) => {
   const [crachaBusca, setCrachaBusca] = useState<string>('');
   const [pendencias, setPendencias] = useState<PendenciaColaborador[]>([]);
   const [isLoadingPendencias, setIsLoadingPendencias] = useState<boolean>(false);
+  const [isScannerCrachaOpen, setIsScannerCrachaOpen] = useState<boolean>(false);
 
   const [produtos, setProdutos] = useState<ProdutoModel[]>([]);
   const [produtoSelecionado, setProdutoSelecionado] = useState<ProdutoModel | null>(null);
@@ -45,7 +47,6 @@ export const DevolucaoScreen: React.FC<DevolucaoScreenProps> = ({ onBack }) => {
     let isMounted = true;
 
     async function carregar() {
-      if (!empId) return;
       setIsLoadingFuncionarios(true);
       
       try {
@@ -79,14 +80,15 @@ export const DevolucaoScreen: React.FC<DevolucaoScreenProps> = ({ onBack }) => {
     }
   };
 
-  const handleBuscarColaborador = async () => {
-    const termo = crachaBusca.trim();
+  const handleBuscarColaborador = async (crachaParam?: string) => {
+    const termo = (crachaParam ?? crachaBusca).trim();
     if (!termo) return;
     setMensagemErro(null);
 
     const fLocal = funcionarios.find((x) => x.cracha.trim().toLowerCase() === termo.toLowerCase());
     if (fLocal) {
       setFuncionarioSelecionado(fLocal);
+      setCrachaBusca(fLocal.cracha);
       carregarPendencias(fLocal.id);
       return;
     }
@@ -96,6 +98,7 @@ export const DevolucaoScreen: React.FC<DevolucaoScreenProps> = ({ onBack }) => {
       const f = await funcionarioService.getFuncionarioByCracha(termo, empId);
       if (f) {
         setFuncionarioSelecionado(f);
+        setCrachaBusca(f.cracha);
         if (!funcionarios.some((x) => x.id === f.id)) {
           setFuncionarios((prev) => [...prev, f]);
         }
@@ -223,7 +226,7 @@ export const DevolucaoScreen: React.FC<DevolucaoScreenProps> = ({ onBack }) => {
     <div className="zoestock-page-container">
       <Header title="Devolução de Produto" showBack={true} onBack={onBack} />
 
-      <div className="page-content">
+      <main className="zoestock-content-scroll page-content">
         <form onSubmit={handleIniciarDevolucao} className="operation-form">
           <div className="form-section-header">
             <h3>1. Colaborador Devolvente</h3>
@@ -247,7 +250,7 @@ export const DevolucaoScreen: React.FC<DevolucaoScreenProps> = ({ onBack }) => {
             <input
               type="text"
               className="text-input"
-              placeholder="Digite o crachá do colaborador..."
+              placeholder="Digite o crachá"
               value={crachaBusca}
               onChange={(e) => setCrachaBusca(e.target.value)}
               onKeyDown={(e) => {
@@ -259,16 +262,24 @@ export const DevolucaoScreen: React.FC<DevolucaoScreenProps> = ({ onBack }) => {
             />
             <button
               type="button"
-              className="btn-search-action"
-              onClick={handleBuscarColaborador}
+              className="btn-icon-search"
+              onClick={() => handleBuscarColaborador()}
               disabled={isLoadingFuncionarios}
+              title="Buscar crachá"
             >
-              <Search size={16} style={{ marginRight: 4 }} />
-              Buscar
+              <Search size={20} />
+            </button>
+            <button
+              type="button"
+              className="btn-qr-action"
+              onClick={() => setIsScannerCrachaOpen(true)}
+              title="Escanear QR Code ou Código de Barras do Crachá"
+            >
+              <QrCode size={20} />
             </button>
           </div>
 
-          <div className="form-group" style={{ marginTop: '10px' }}>
+          <div className="form-group" style={{ marginTop: '8px' }}>
             <select
               className="select-input"
               value={funcionarioSelecionado?.id || ''}
@@ -285,7 +296,7 @@ export const DevolucaoScreen: React.FC<DevolucaoScreenProps> = ({ onBack }) => {
               <option value="">
                 {isLoadingFuncionarios
                   ? 'Carregando colaboradores...'
-                  : `Selecione na lista (${funcionarios.length} disponíveis)...`}
+                  : 'Selecione o colaborador'}
               </option>
               {funcionarios.map((f) => (
                 <option key={f.id} value={f.id}>
@@ -375,7 +386,7 @@ export const DevolucaoScreen: React.FC<DevolucaoScreenProps> = ({ onBack }) => {
                 setProdutoSelecionado(found || null);
               }}
             >
-              <option value="">Selecione o produto...</option>
+              <option value="">Selecione o produto</option>
               {produtos.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.codigo ? `${p.codigo} - ` : ''}{p.nome}
@@ -385,12 +396,12 @@ export const DevolucaoScreen: React.FC<DevolucaoScreenProps> = ({ onBack }) => {
           </div>
 
           <QuantitySelector
-            label="Quantidade Devolvida *"
+            label="Quantidade devolvida *"
             value={quantidade}
             onChange={setQuantidade}
           />
 
-          <div className="form-group" style={{ marginTop: '12px' }}>
+          <div className="form-group" style={{ marginTop: '10px' }}>
             <label className="field-label">Observação / Estado do Item</label>
             <input
               type="text"
@@ -405,12 +416,12 @@ export const DevolucaoScreen: React.FC<DevolucaoScreenProps> = ({ onBack }) => {
             type="submit"
             className="btn-submit-action"
             disabled={isLoading}
-            style={{ marginTop: '20px' }}
+            style={{ marginTop: '16px' }}
           >
             {isLoading ? 'Registrando devolução...' : 'Confirmar Devolução'}
           </button>
         </form>
-      </div>
+      </main>
 
       <PinModal
         isOpen={modalPinOpen}
@@ -424,6 +435,18 @@ export const DevolucaoScreen: React.FC<DevolucaoScreenProps> = ({ onBack }) => {
         isLoading={isValidatingPin}
         onConfirm={handleConfirmarPin}
         onClose={() => setModalPinOpen(false)}
+      />
+
+      {/* Modal de Leitura de QR Code / Código de Barras do Crachá */}
+      <QrCodeScannerModal
+        isOpen={isScannerCrachaOpen}
+        title="Escanear QR Code do Crachá"
+        subtitle="Aponte a câmera para o QR Code ou código do crachá do colaborador para identificação instantânea."
+        onClose={() => setIsScannerCrachaOpen(false)}
+        onScan={(matricula) => {
+          setCrachaBusca(matricula);
+          handleBuscarColaborador(matricula);
+        }}
       />
     </div>
   );

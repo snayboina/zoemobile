@@ -28,7 +28,6 @@ export const LocalizacaoScreen: React.FC<LocalizacaoScreenProps> = ({ onBack }) 
 
   useEffect(() => {
     async function carregar() {
-      if (!empId) return;
       try {
         const [prods, prats] = await Promise.all([
           produtoService.listarProdutos(empId),
@@ -103,7 +102,7 @@ export const LocalizacaoScreen: React.FC<LocalizacaoScreenProps> = ({ onBack }) 
                     setProdutoSelecionado(found || null);
                   }}
                 >
-                  <option value="">Selecione...</option>
+                  <option value="">Selecione o produto</option>
                   {produtos.map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.codigo ? `${p.codigo} - ` : ''}{p.nome}
@@ -136,7 +135,7 @@ export const LocalizacaoScreen: React.FC<LocalizacaoScreenProps> = ({ onBack }) 
                   value={prateleiraSelecionada?.id || ''}
                   onChange={(e) => handleSelecionarPrateleira(e.target.value)}
                 >
-                  <option value="">Selecione...</option>
+                  <option value="">Selecione a prateleira</option>
                   {prateleiras.map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.codigoLocalizacao} - Zona: {p.zona}
@@ -146,7 +145,7 @@ export const LocalizacaoScreen: React.FC<LocalizacaoScreenProps> = ({ onBack }) 
               </div>
 
               {prateleiraSelecionada && (
-                <div style={{ marginTop: '20px' }}>
+                <div style={{ marginTop: '16px' }}>
                   <div className="form-section-header">
                     <h3>Produtos Alocados nesta Prateleira:</h3>
                   </div>

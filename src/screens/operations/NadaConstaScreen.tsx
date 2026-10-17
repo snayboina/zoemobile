@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Search, AlertTriangle, CheckCircle2, User, WifiOff } from 'lucide-react';
+import { Search, AlertTriangle, CheckCircle2, User, WifiOff, QrCode } from 'lucide-react';
 import { Header } from '../../components/common/Header';
+import { QrCodeScannerModal } from '../../components/common/QrCodeScannerModal';
 import { useAuthStore } from '../../store/useAuthStore';
 import { funcionarioService } from '../../services/funcionarioService';
 import { movimentacaoService } from '../../services/movimentacaoService';
@@ -22,12 +23,12 @@ export const NadaConstaScreen: React.FC<NadaConstaScreenProps> = ({ onBack }) =>
   const [hasSearched, setHasSearched] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isScannerCrachaOpen, setIsScannerCrachaOpen] = useState<boolean>(false);
 
   const isOffline = !navigator.onLine;
 
   useEffect(() => {
     async function carregarLista() {
-      if (!empId) return;
       try {
         const funcs = await funcionarioService.listarFuncionarios(empId);
         setFuncionarios(funcs);
@@ -58,12 +59,13 @@ export const NadaConstaScreen: React.FC<NadaConstaScreenProps> = ({ onBack }) =>
     }
   };
 
-  const handleConsultar = async () => {
-    const termo = cracha.trim();
+  const handleConsultar = async (crachaParam?: string) => {
+    const termo = (crachaParam ?? cracha).trim();
     if (!termo) return;
 
     const fLocal = funcionarios.find((x) => x.cracha.trim().toLowerCase() === termo.toLowerCase());
     if (fLocal) {
+      setCracha(fLocal.cracha);
       executarConsulta(fLocal);
       return;
     }
@@ -76,6 +78,7 @@ export const NadaConstaScreen: React.FC<NadaConstaScreenProps> = ({ onBack }) =>
         setIsLoading(false);
         return;
       }
+      setCracha(func.cracha);
       executarConsulta(func);
     } catch (err: any) {
       setErrorMessage(err.message || 'Erro ao buscar colaborador.');
@@ -87,11 +90,11 @@ export const NadaConstaScreen: React.FC<NadaConstaScreenProps> = ({ onBack }) =>
     <div className="zoestock-page-container">
       <Header title="Consulta Nada Consta" showBack={true} onBack={onBack} />
 
-      <div className="page-content">
+      <main className="zoestock-content-scroll page-content">
         <div className="operation-form">
           <div className="form-section-header">
             <h3>Consultar Situação do Colaborador</h3>
-            <p className="section-subtext">
+            <p className="section-subtext" style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '4px' }}>
               Verifique pendências de equipamentos e EPIs para homologação, rescisão ou auditoria.
             </p>
           </div>
@@ -114,7 +117,7 @@ export const NadaConstaScreen: React.FC<NadaConstaScreenProps> = ({ onBack }) =>
             <input
               type="text"
               className="text-input"
-              placeholder="Digite o crachá..."
+              placeholder="Digite o crachá"
               value={cracha}
               onChange={(e) => setCracha(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleConsultar()}
@@ -122,16 +125,25 @@ export const NadaConstaScreen: React.FC<NadaConstaScreenProps> = ({ onBack }) =>
             />
             <button
               type="button"
-              className="btn-search-action"
-              onClick={handleConsultar}
+              className="btn-icon-search"
+              onClick={() => handleConsultar()}
               disabled={isOffline || isLoading}
+              title="Consultar crachá"
             >
-              <Search size={16} style={{ marginRight: 4 }} />
-              Consultar
+              <Search size={20} />
+            </button>
+            <button
+              type="button"
+              className="btn-qr-action"
+              onClick={() => setIsScannerCrachaOpen(true)}
+              disabled={isOffline}
+              title="Escanear QR Code ou Código de Barras do Crachá"
+            >
+              <QrCode size={20} />
             </button>
           </div>
 
-          <div className="form-group" style={{ marginTop: '10px' }}>
+          <div className="form-group" style={{ marginTop: '8px' }}>
             <select
               className="select-input"
               value={funcionarioConsultado?.id || ''}
@@ -144,7 +156,7 @@ export const NadaConstaScreen: React.FC<NadaConstaScreenProps> = ({ onBack }) =>
               }}
               disabled={isOffline || isLoading}
             >
-              <option value="">Ou selecione da lista ({funcionarios.length} colaboradores)...</option>
+              <option value="">Selecione o colaborador ({funcionarios.length} disponíveis)...</option>
               {funcionarios.map((f) => (
                 <option key={f.id} value={f.id}>
                   {f.cracha} - {f.nome}
@@ -219,7 +231,19 @@ export const NadaConstaScreen: React.FC<NadaConstaScreenProps> = ({ onBack }) =>
             </div>
           )}
         </div>
-      </div>
+      </main>
+
+      {/* Modal de Leitura de QR Code / Código de Barras do Crachá */}
+      <QrCodeScannerModal
+        isOpen={isScannerCrachaOpen}
+        title="Escanear QR Code do Crachá"
+        subtitle="Aponte a câmera para o QR Code ou código do crachá para consulta rápida de pendências."
+        onClose={() => setIsScannerCrachaOpen(false)}
+        onScan={(matricula) => {
+          setCracha(matricula);
+          handleConsultar(matricula);
+        }}
+      />
     </div>
   );
 };

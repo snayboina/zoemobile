@@ -31,7 +31,6 @@ export const InventarioScreen: React.FC<InventarioScreenProps> = ({ onBack }) =>
 
   useEffect(() => {
     async function carregar() {
-      if (!empId) return;
       try {
         const [prods, prats] = await Promise.all([
           produtoService.listarProdutos(empId),
@@ -158,7 +157,7 @@ export const InventarioScreen: React.FC<InventarioScreenProps> = ({ onBack }) =>
               }}
               required
             >
-              <option value="">Selecione o produto...</option>
+              <option value="">Selecione o produto</option>
               {produtos.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.codigo ? `${p.codigo} - ` : ''}{p.nome}
@@ -184,7 +183,7 @@ export const InventarioScreen: React.FC<InventarioScreenProps> = ({ onBack }) =>
             </div>
           )}
 
-          <div className="form-group" style={{ marginTop: '20px' }}>
+          <div className="form-group" style={{ marginTop: '12px' }}>
             <label className="field-label">Quantidade Física Apurada *</label>
             <input
               type="number"
@@ -197,7 +196,7 @@ export const InventarioScreen: React.FC<InventarioScreenProps> = ({ onBack }) =>
           </div>
 
           {/* Mudança de Prateleira */}
-          <div className="checkbox-group" style={{ marginTop: '16px' }}>
+          <div className="checkbox-group" style={{ marginTop: '10px' }}>
             <label className="checkbox-label">
               <input
                 type="checkbox"

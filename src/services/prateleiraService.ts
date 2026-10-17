@@ -13,31 +13,50 @@ export class PrateleiraService {
     this.sync = sync;
   }
 
-  async listarPrateleiras(empresaId: string): Promise<PrateleiraModel[]> {
+  async listarPrateleiras(empresaId?: string): Promise<PrateleiraModel[]> {
     try {
-      const { data, error } = await this.client
+      const empFiltro = (empresaId || '').trim();
+
+      if (empFiltro) {
+        const { data, error } = await this.client
+          .from('prateleiras')
+          .select('*')
+          .eq('empresa_id', empFiltro)
+          .eq('excluido', false)
+          .order('codigo_localizacao', { ascending: true });
+
+        if (!error && data && data.length > 0) {
+          const list = (data as Array<Record<string, any>>).map((json) =>
+            parsePrateleiraFromDb(json)
+          );
+          await this.sync.salvarPrateleirasCache(list, empFiltro);
+          return list;
+        }
+      }
+
+      // Busca geral de prateleiras ativas do Supabase
+      const resGeral = await this.client
         .from('prateleiras')
         .select('*')
-        .eq('empresa_id', empresaId)
+        .eq('excluido', false)
         .order('codigo_localizacao', { ascending: true });
 
-      if (error) {
-        throw new Error(error.message);
+      if (!resGeral.error && resGeral.data && resGeral.data.length > 0) {
+        const list = (resGeral.data as Array<Record<string, any>>).map((json) =>
+          parsePrateleiraFromDb(json)
+        );
+        await this.sync.salvarPrateleirasCache(list, empFiltro || 'default');
+        return list;
       }
-
-      const list = ((data as Array<Record<string, any>>) || []).map((json) =>
-        parsePrateleiraFromDb(json)
-      );
-
-      await this.sync.salvarPrateleirasCache(list, empresaId);
-      return list;
     } catch (err: unknown) {
-      const cache = await this.sync.obterPrateleirasCache(empresaId);
-      if (cache.length > 0) {
-        return cache;
-      }
-      throw new Error(`Erro ao carregar prateleiras (sem conexão): ${err instanceof Error ? err.message : String(err)}`);
+      console.warn('Falha na busca de prateleiras no Supabase:', err);
     }
+
+    const cache = await this.sync.obterPrateleirasCache(empresaId || 'default');
+    if (cache.length > 0) {
+      return cache;
+    }
+    return [];
   }
 }
 

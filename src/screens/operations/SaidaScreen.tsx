@@ -6,12 +6,14 @@ import {
   Trash2,
   User,
   Package,
-    Search,
+  Search,
+  QrCode,
 } from 'lucide-react';
 import { Header } from '../../components/common/Header';
 import { QuantitySelector } from '../../components/operations/QuantitySelector';
 import { PinModal } from '../../components/operations/PinModal';
 import { EpiBlockedModal } from '../../components/operations/EpiBlockedModal';
+import { QrCodeScannerModal } from '../../components/common/QrCodeScannerModal';
 import { useAuthStore } from '../../store/useAuthStore';
 import { produtoService } from '../../services/produtoService';
 import { funcionarioService } from '../../services/funcionarioService';
@@ -39,6 +41,7 @@ export const SaidaScreen: React.FC<SaidaScreenProps> = ({ onBack }) => {
   const [funcionarioSelecionado, setFuncionarioSelecionado] = useState<FuncionarioModel | null>(null);
   const [crachaBusca, setCrachaBusca] = useState<string>('');
   const [isLoadingFuncionarios, setIsLoadingFuncionarios] = useState<boolean>(false);
+  const [isScannerCrachaOpen, setIsScannerCrachaOpen] = useState<boolean>(false);
 
   // Estados dos Produtos
   const [produtos, setProdutos] = useState<ProdutoModel[]>([]);
@@ -72,7 +75,6 @@ export const SaidaScreen: React.FC<SaidaScreenProps> = ({ onBack }) => {
     let isMounted = true;
 
     async function carregarColaboradores() {
-      if (!empId) return;
       setIsLoadingFuncionarios(true);
       try {
         const funcs = await funcionarioService.listarFuncionarios(empId);
@@ -87,7 +89,6 @@ export const SaidaScreen: React.FC<SaidaScreenProps> = ({ onBack }) => {
     }
 
     async function carregarProdutos() {
-      if (!empId) return;
       setIsLoadingProdutos(true);
       try {
         const prods = await produtoService.listarProdutos(empId);
@@ -110,8 +111,8 @@ export const SaidaScreen: React.FC<SaidaScreenProps> = ({ onBack }) => {
   }, [empId]);
 
   // Busca de Colaborador por Crachá
-  const handleBuscarPorCracha = async () => {
-    const termo = crachaBusca.trim();
+  const handleBuscarPorCracha = async (crachaParam?: string) => {
+    const termo = (crachaParam ?? crachaBusca).trim();
     if (!termo) return;
     setMensagemErro(null);
 
@@ -121,6 +122,7 @@ export const SaidaScreen: React.FC<SaidaScreenProps> = ({ onBack }) => {
     );
     if (fLocal) {
       setFuncionarioSelecionado(fLocal);
+      setCrachaBusca(fLocal.cracha);
       return;
     }
 
@@ -130,6 +132,7 @@ export const SaidaScreen: React.FC<SaidaScreenProps> = ({ onBack }) => {
       const func = await funcionarioService.getFuncionarioByCracha(termo, empId);
       if (func) {
         setFuncionarioSelecionado(func);
+        setCrachaBusca(func.cracha);
         if (!funcionarios.some((x) => x.id === func.id)) {
           setFuncionarios((prev) => [...prev, func]);
         }
@@ -330,7 +333,7 @@ export const SaidaScreen: React.FC<SaidaScreenProps> = ({ onBack }) => {
         onBack={onBack}
       />
 
-      <div className="page-content">
+      <main className="zoestock-content-scroll page-content">
         <div className="operation-form">
           {/* SESSÃO 1: DADOS DO COLABORADOR RECEPTOR */}
           <div className="form-section-header">
@@ -356,24 +359,32 @@ export const SaidaScreen: React.FC<SaidaScreenProps> = ({ onBack }) => {
             <input
               type="text"
               className="text-input"
-              placeholder="Digite o crachá do colaborador..."
+              placeholder="Digite o crachá"
               value={crachaBusca}
               onChange={(e) => setCrachaBusca(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleBuscarPorCracha()}
             />
             <button
               type="button"
-              className="btn-search-action"
-              onClick={handleBuscarPorCracha}
+              className="btn-icon-search"
+              onClick={() => handleBuscarPorCracha()}
               disabled={isLoadingFuncionarios}
+              title="Buscar crachá"
             >
-              <Search size={16} style={{ marginRight: 4 }} />
-              Buscar
+              <Search size={20} />
+            </button>
+            <button
+              type="button"
+              className="btn-qr-action"
+              onClick={() => setIsScannerCrachaOpen(true)}
+              title="Escanear QR Code ou Código de Barras do Crachá"
+            >
+              <QrCode size={20} />
             </button>
           </div>
 
           {/* Dropdown de Colaboradores */}
-          <div className="form-group" style={{ marginTop: '10px' }}>
+          <div className="form-group" style={{ marginTop: '8px' }}>
             <select
               className="select-input"
               value={funcionarioSelecionado?.id || ''}
@@ -389,7 +400,7 @@ export const SaidaScreen: React.FC<SaidaScreenProps> = ({ onBack }) => {
               <option value="">
                 {isLoadingFuncionarios
                   ? 'Carregando colaboradores...'
-                  : `Selecione na lista (${funcionarios.length} disponíveis)...`}
+                  : 'Selecione o colaborador'}
               </option>
               {funcionarios.map((f) => (
                 <option key={f.id} value={f.id}>
@@ -423,7 +434,7 @@ export const SaidaScreen: React.FC<SaidaScreenProps> = ({ onBack }) => {
           )}
 
           {/* SESSÃO 2: SELECIONAR PRODUTO PARA SAÍDA */}
-          <div className="form-section-header" style={{ marginTop: '24px' }}>
+          <div className="form-section-header" style={{ marginTop: '18px' }}>
             <h3>2. Selecionar Produto para Saída</h3>
           </div>
 
@@ -446,7 +457,7 @@ export const SaidaScreen: React.FC<SaidaScreenProps> = ({ onBack }) => {
               <option value="">
                 {isLoadingProdutos
                   ? 'Carregando produtos...'
-                  : `Selecione o produto (${produtos.length} cadastrados)...`}
+                  : 'Selecione o produto'}
               </option>
               {produtos.map((p) => {
                 const caInfo = p.conformidade?.numero_ca ? ` [CA: ${p.conformidade.numero_ca}]` : '';
@@ -489,14 +500,14 @@ export const SaidaScreen: React.FC<SaidaScreenProps> = ({ onBack }) => {
 
           {/* Seletor de Quantidade */}
           <QuantitySelector
-            label="Quantidade Solicitada *"
+            label="Quantidade solicitada *"
             value={quantidade}
             max={produtoSelecionado ? produtoSelecionado.estoqueAtual : undefined}
             onChange={setQuantidade}
           />
 
           {/* Checkbox Consumo */}
-          <div className="checkbox-row" style={{ marginTop: '12px' }}>
+          <div className="checkbox-row" style={{ marginTop: '10px' }}>
             <label className="checkbox-label">
               <input
                 type="checkbox"
@@ -513,7 +524,7 @@ export const SaidaScreen: React.FC<SaidaScreenProps> = ({ onBack }) => {
           </div>
 
           {/* Observação */}
-          <div className="form-group" style={{ marginTop: '12px' }}>
+          <div className="form-group" style={{ marginTop: '10px' }}>
             <label className="field-label">Observação</label>
             <input
               type="text"
@@ -531,13 +542,13 @@ export const SaidaScreen: React.FC<SaidaScreenProps> = ({ onBack }) => {
             onClick={handleAdicionarAoCarrinho}
             style={{ marginTop: '14px' }}
           >
-            + Adicionar ao Carrinho de Saída
+            + Adicionar ao Carrinho
           </button>
 
           {/* SESSÃO 3: CARRINHO DE SAÍDA */}
-          <div className="cart-section" style={{ marginTop: '28px' }}>
+          <div className="cart-section" style={{ marginTop: '20px' }}>
             <div className="cart-header">
-              <ShoppingCart size={20} color="#D32F2F" />
+              <ShoppingCart size={18} color="#D32F2F" />
               <h3>Carrinho de Saída ({carrinho.length} {carrinho.length === 1 ? 'item' : 'itens'})</h3>
             </div>
 
@@ -583,7 +594,7 @@ export const SaidaScreen: React.FC<SaidaScreenProps> = ({ onBack }) => {
             )}
           </div>
         </div>
-      </div>
+      </main>
 
       {/* MODAL TRAVA RN-08 (EPI COM CA VENCIDO) */}
       <EpiBlockedModal
@@ -607,6 +618,18 @@ export const SaidaScreen: React.FC<SaidaScreenProps> = ({ onBack }) => {
         onConfirm={handleConfirmarComPin}
         onClose={() => {
           if (!isValidatingPin) setModalPinOpen(false);
+        }}
+      />
+
+      {/* MODAL DE LEITURA DE QR CODE / CÓDIGO DE BARRAS DO CRACHÁ */}
+      <QrCodeScannerModal
+        isOpen={isScannerCrachaOpen}
+        title="Escanear QR Code do Crachá"
+        subtitle="Aponte a câmera para o QR Code ou código do crachá do colaborador para identificação instantânea."
+        onClose={() => setIsScannerCrachaOpen(false)}
+        onScan={(matricula) => {
+          setCrachaBusca(matricula);
+          handleBuscarPorCracha(matricula);
         }}
       />
     </div>

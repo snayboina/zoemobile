@@ -21,7 +21,7 @@ const ONBOARDING_SLIDES = [
     subtitle: 'Segurança Ocupacional e Validade de CA',
     description:
       'Trava automática na entrega de EPIs com Certificado de Aprovação (CA) vencido ou inválido.',
-    image: '/assets/onboarding/onboarding_2.png',
+    image: '/assets/onboarding/security.png',
   },
   {
     id: 3,
@@ -29,7 +29,7 @@ const ONBOARDING_SLIDES = [
     subtitle: 'Zonas, Prateleiras e Andares',
     description:
       'Localize rapidamente qualquer produto através do mapeamento preciso de ruas, níveis e posições.',
-    image: '/assets/onboarding/onboarding_3.png',
+    image: '/assets/onboarding/inventory5.png',
   },
   {
     id: 4,
@@ -37,7 +37,7 @@ const ONBOARDING_SLIDES = [
     subtitle: 'Sincronização Automática em Contingência',
     description:
       'Continue operando mesmo sem conexão com a internet. O aplicativo sincroniza os dados assim que o sinal retornar.',
-    image: '/assets/onboarding/onboarding_4.png',
+    image: '/assets/onboarding/movements1.png',
   },
 ];
 

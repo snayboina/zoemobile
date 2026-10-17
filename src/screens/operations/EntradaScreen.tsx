@@ -28,7 +28,6 @@ export const EntradaScreen: React.FC<EntradaScreenProps> = ({ onBack }) => {
 
   useEffect(() => {
     async function carregar() {
-      if (!empId) return;
       setIsLoadingProdutos(true);
       try {
         const lista = await produtoService.listarProdutos(empId);
@@ -147,7 +146,7 @@ export const EntradaScreen: React.FC<EntradaScreenProps> = ({ onBack }) => {
                 }}
                 required
               >
-                <option value="">Selecione um produto...</option>
+                <option value="">Selecione o produto</option>
                 {produtos.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.codigo ? `${p.codigo} - ` : ''}{p.nome}
@@ -175,19 +174,19 @@ export const EntradaScreen: React.FC<EntradaScreenProps> = ({ onBack }) => {
             </div>
           )}
 
-          <div className="form-section-header" style={{ marginTop: '24px' }}>
+          <div className="form-section-header" style={{ marginTop: '18px' }}>
             <h3>Detalhes da Entrada</h3>
           </div>
 
           {/* Seletor de Quantidade */}
           <QuantitySelector
-            label="Quantidade de Entrada *"
+            label="Quantidade de entrada *"
             value={quantidade}
             onChange={setQuantidade}
           />
 
           {/* Observação */}
-          <div className="form-group" style={{ marginTop: '16px' }}>
+          <div className="form-group" style={{ marginTop: '10px' }}>
             <label className="field-label">Observação (Opcional)</label>
             <input
               type="text"

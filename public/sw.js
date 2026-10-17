@@ -1,5 +1,5 @@
-// Service Worker do ZOESTOCK PWA
-const CACHE_NAME = 'zoestock-pwa-v2-pin6';
+// Service Worker do ZOESTOCK PWA - Versão Fase 5 Oficial
+const CACHE_NAME = 'zoestock-pwa-v4-fase5-official';
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
@@ -21,7 +21,7 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const isDev = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
   if (isDev) {
-    // Em localhost, passa direto para a rede em tempo real sem prender cache
+    // Em desenvolvimento (localhost), passa direto para o Vite dev server sem prender cache
     return;
   }
 

@@ -1,4 +1,4 @@
-﻿# 10 â€” MATRIZ DE RASTREABILIDADE
+# 10 â€” MATRIZ DE RASTREABILIDADE
 
 Esta matriz conecta formalmente cada componente, tela e funcionalidade do aplicativo Flutter original Ã  sua respectiva especificaÃ§Ã£o de destino em React Native, assegurando que nada seja omitido ou esquecido durante a migraÃ§Ã£o.
 
@@ -12,7 +12,7 @@ Esta matriz conecta formalmente cada componente, tela e funcionalidade do aplica
 | **TR-006** | Hardware | Scanner CÃ¢mera com Bipe Industrial | `scanner_screen.dart` | RN-018 | PermissÃ£o de CÃ¢mera | `screens/ScannerScreen.tsx` | Leitura de EAN e QR com bipe | DOCUMENTADO â€” AGUARDANDO MIGRAÃ‡ÃƒO |
 | **TR-007** | MovimentaÃ§Ã£o | Entrada de Mercadoria no Estoque | `entrada_screen.dart` | RN-006, RN-019 | Multitenant, Trigger Saldo | `screens/EntradaScreen.tsx` | Saldo incrementa no banco | DOCUMENTADO â€” AGUARDANDO MIGRAÃ‡ÃƒO |
 | **TR-008** | MovimentaÃ§Ã£o | SaÃ­da com Carrinho e Bloqueio EPI | `saida_screen.dart` | RN-007, RN-008, RN-009, RN-010 | ValidaÃ§Ã£o de CA e bloqueio manual | `screens/SaidaScreen.tsx` | Bloqueio de EPI vencido | DOCUMENTADO â€” AGUARDANDO MIGRAÃ‡ÃƒO |
-| **TR-009** | MovimentaÃ§Ã£o | Assinatura por Senha (4 dÃ­gitos) | `saida_screen.dart`, `devolucao_screen.dart` | RN-011, RN-012 | RPC validar_senha_movimentacao | `components/ModalSenhaMovimentacao.tsx` | TransaÃ§Ã£o exige PIN correto | DOCUMENTADO â€” AGUARDANDO MIGRAÃ‡ÃƒO |
+| **TR-009** | Movimentação | Assinatura por Senha (6 dígitos OTP) & Reset Web | `saida_screen.dart`, `devolucao_screen.dart` | RN-011, RN-012 | RPCs validar_senha_movimentacao e cadastrar_senha_movimentacao_inicial | `components/operations/PinModal.tsx`, `screens/operations/SaidaScreen.tsx`, `screens/operations/DevolucaoScreen.tsx` | Transação exige PIN correto ou cadastra nova senha se resetada | IMPLEMENTADO COM SUCESSO |
 | **TR-010** | MovimentaÃ§Ã£o | DevoluÃ§Ã£o de Mercadoria | `devolucao_screen.dart` | RN-011, RN-016, RN-017 | ReordenaÃ§Ã£o por pendÃªncia | `screens/DevolucaoScreen.tsx` | Baixa de pendÃªncia do colaborador | DOCUMENTADO â€” AGUARDANDO MIGRAÃ‡ÃƒO |
 | **TR-011** | MovimentaÃ§Ã£o | Extrato Recente com Filtros | `movimentacoes_screen.dart` | RN-006 | RLS PostgREST | `screens/MovimentacoesScreen.tsx` | Filtro por tipo (EN, SA, DV) | DOCUMENTADO â€” AGUARDANDO MIGRAÃ‡ÃƒO |
 | **TR-012** | Auditoria | Consulta de Nada Consta | `nada_consta_screen.dart` | RN-016 | Rastreabilidade de DÃ©bitos | `screens/NadaConstaScreen.tsx` | EmissÃ£o de selo verde se zerado | DOCUMENTADO â€” AGUARDANDO MIGRAÃ‡ÃƒO |

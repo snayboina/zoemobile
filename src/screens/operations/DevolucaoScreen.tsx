@@ -195,15 +195,42 @@ export const DevolucaoScreen: React.FC<DevolucaoScreenProps> = ({ onBack }) => {
     setPinError(null);
 
     try {
-      const validacao = await funcionarioService.validarSenhaMovimentacao(
-        funcionarioSelecionado.id,
-        pinDigitado
-      );
+      // 1. SE A SENHA FOI RESETADA NO PAINEL WEB: CADASTRA A NOVA SENHA!
+      if (!funcionarioSelecionado.tem_senha_movimentacao) {
+        const resCadastro = await funcionarioService.cadastrarSenhaMovimentacaoInicial(
+          funcionarioSelecionado.id,
+          pinDigitado
+        );
+        if (!resCadastro.success) {
+          if (resCadastro.message && resCadastro.message.toLowerCase().includes('já possui')) {
+            setFuncionarioSelecionado((prev) => (prev ? { ...prev, tem_senha_movimentacao: true } : null));
+            setPinError('Colaborador já possui senha cadastrada. Digite o PIN de 6 dígitos.');
+            setIsValidatingPin(false);
+            return;
+          }
+          setPinError(resCadastro.message || 'Erro ao cadastrar nova senha.');
+          setIsValidatingPin(false);
+          return;
+        }
+        setFuncionarioSelecionado((prev) => (prev ? { ...prev, tem_senha_movimentacao: true } : null));
+      } else {
+        // 2. SE JÁ POSSUI SENHA: VALIDA NORMALMENTE
+        const validacao = await funcionarioService.validarSenhaMovimentacao(
+          funcionarioSelecionado.id,
+          pinDigitado
+        );
 
-      if (!validacao.success) {
-        setPinError(validacao.message || 'Senha incorreta.');
-        setIsValidatingPin(false);
-        return;
+        if (!validacao.success) {
+          if (validacao.message && validacao.message.toLowerCase().includes('sem senha')) {
+            setFuncionarioSelecionado((prev) => (prev ? { ...prev, tem_senha_movimentacao: false } : null));
+            setPinError('Senha foi resetada pelo administrador. Digite uma nova senha de 6 dígitos para cadastrar.');
+            setIsValidatingPin(false);
+            return;
+          }
+          setPinError(validacao.message || 'Senha incorreta.');
+          setIsValidatingPin(false);
+          return;
+        }
       }
 
       setModalPinOpen(false);
@@ -455,11 +482,15 @@ export const DevolucaoScreen: React.FC<DevolucaoScreenProps> = ({ onBack }) => {
 
       <PinModal
         isOpen={modalPinOpen}
-        title="PIN de Confirmação"
+        title={
+          funcionarioSelecionado?.tem_senha_movimentacao
+            ? 'PIN de Confirmação'
+            : 'Cadastrar Nova Senha'
+        }
         subtitle={
-          funcionarioSelecionado
+          funcionarioSelecionado?.tem_senha_movimentacao
             ? `Digite o PIN de 6 dígitos de ${funcionarioSelecionado.nome} para confirmar a devolução:`
-            : 'Digite o PIN:'
+            : `Crie uma senha de 6 dígitos para ${funcionarioSelecionado?.nome || 'o colaborador'} autorizar devoluções:`
         }
         errorMessage={pinError}
         isLoading={isValidatingPin}

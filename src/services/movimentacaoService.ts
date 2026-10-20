@@ -71,14 +71,26 @@ export class MovimentacaoService {
     };
 
     try {
+      const isValidUuid = (val?: string | null): boolean => {
+        if (!val) return false;
+        return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(val.trim());
+      };
+
       const payload: Record<string, unknown> = {
         produto_id: auditMov.produtoId || auditMov.produto_id,
         tipo: auditMov.tipo,
         quantidade: auditMov.quantidade,
-        empresa_id: audit.empresaId,
       };
-      if (auditMov.funcionarioId) payload.funcionario_id = auditMov.funcionarioId;
-      if (auditMov.prateleiraId) payload.prateleira_id = auditMov.prateleiraId;
+
+      if (isValidUuid(audit.empresaId)) {
+        payload.empresa_id = audit.empresaId.trim();
+      }
+      if (isValidUuid(auditMov.funcionarioId)) {
+        payload.funcionario_id = auditMov.funcionarioId.trim();
+      }
+      if (isValidUuid(auditMov.prateleiraId)) {
+        payload.prateleira_id = auditMov.prateleiraId.trim();
+      }
       if (auditMov.observacao) payload.observacao = auditMov.observacao;
       if (auditMov.tipoEntrada) payload.tipo_entrada = auditMov.tipoEntrada;
       if (auditMov.usuarioNome) payload.usuario_nome = auditMov.usuarioNome;

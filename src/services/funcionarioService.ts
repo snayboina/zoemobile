@@ -20,27 +20,55 @@ export class FuncionarioService {
     this.sync = sync;
   }
 
-  async listarFuncionarios(empresaId: string): Promise<FuncionarioModel[]> {
+  private isValidUuid(value?: string | null): boolean {
+    if (!value) return false;
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value.trim());
+  }
+
+  async listarFuncionarios(empresaId?: string): Promise<FuncionarioModel[]> {
+    const empLimpo = (empresaId || '').trim();
+    const isUuid = this.isValidUuid(empLimpo);
+
     try {
-      const { data, error } = await this.client
+      // 1. Tentar RPC oficial segura criada na blindagem LGPD (Script 126)
+      if (isUuid) {
+        const { data, error } = await this.client.rpc('listar_funcionarios_empresa', {
+          p_empresa_id: empLimpo,
+        });
+
+        if (!error && Array.isArray(data) && data.length > 0) {
+          const list = data.map((json: Record<string, any>) => parseFuncionarioFromDb(json));
+          await this.sync.salvarFuncionariosCache(list, empLimpo);
+          return list;
+        }
+      }
+
+      // 2. Fallback query direta (somente com filtro se for UUID válido para não estourar erro 400 no PostgreSQL)
+      let query = this.client
         .from('funcionarios')
         .select('*')
-        .eq('excluido', false)
-        .eq('empresa_id', empresaId)
-        .order('nome', { ascending: true });
+        .eq('excluido', false);
+
+      if (isUuid) {
+        query = query.eq('empresa_id', empLimpo);
+      }
+
+      query = query.order('nome', { ascending: true });
+
+      const { data, error } = await query;
+      if (!error && Array.isArray(data) && data.length > 0) {
+        const list = data.map((json: Record<string, any>) => parseFuncionarioFromDb(json));
+        await this.sync.salvarFuncionariosCache(list, empLimpo || 'default');
+        return list;
+      }
 
       if (error) {
         throw new Error(error.message);
       }
 
-      const list = ((data as Array<Record<string, any>>) || []).map((json) =>
-        parseFuncionarioFromDb(json)
-      );
-
-      await this.sync.salvarFuncionariosCache(list, empresaId);
-      return list;
+      return [];
     } catch (err: unknown) {
-      const cache = await this.sync.obterFuncionariosCache(empresaId);
+      const cache = await this.sync.obterFuncionariosCache(empLimpo || 'default');
       if (cache.length > 0) {
         return cache;
       }
@@ -49,30 +77,46 @@ export class FuncionarioService {
   }
 
   async getFuncionarioByCracha(cracha: string, empresaId?: string): Promise<FuncionarioModel | null> {
+    const termo = (cracha || '').trim();
+    if (!termo) return null;
+
+    const empLimpo = (empresaId || '').trim();
+    const isUuid = this.isValidUuid(empLimpo);
+
     try {
+      // 1. Chamar RPC oficial segura buscar_funcionario_por_cracha (Script 126 - bypass no bloqueio da tabela)
+      const { data, error } = await this.client.rpc('buscar_funcionario_por_cracha', {
+        p_cracha: termo,
+        p_empresa_id: isUuid ? empLimpo : null,
+      });
+
+      if (!error && Array.isArray(data) && data.length > 0) {
+        return parseFuncionarioFromDb(data[0]);
+      }
+
+      // 2. Fallback query direta (caso esteja em ambiente com permissão)
       let query = this.client
         .from('funcionarios')
         .select('*')
-        .eq('cracha', cracha.trim())
+        .eq('cracha', termo)
         .eq('excluido', false);
 
-      if (empresaId) {
-        query = query.eq('empresa_id', empresaId);
+      if (isUuid) {
+        query = query.eq('empresa_id', empLimpo);
       }
 
-      const { data, error } = await query.maybeSingle();
+      const { data: directData, error: directError } = await query.maybeSingle();
 
-      if (error) {
-        throw new Error(error.message);
+      if (!directError && directData) {
+        return parseFuncionarioFromDb(directData);
       }
 
-      if (data) {
-        return parseFuncionarioFromDb(data);
-      }
       return null;
     } catch {
-      const cache = await this.sync.obterFuncionariosCache(empresaId);
-      const found = cache.find((f) => f.cracha === cracha.trim());
+      const cache = await this.sync.obterFuncionariosCache(empLimpo || 'default');
+      const found = cache.find(
+        (f) => f.cracha.trim().toLowerCase() === termo.toLowerCase()
+      );
       return found || null;
     }
   }
@@ -86,10 +130,11 @@ export class FuncionarioService {
       });
 
       if (!error && data != null) {
-        const isValid = data === true || data.valido === true || data.sucesso === true;
+        const isValid = data === true || data.valido === true || data.sucesso === true || data.success === true;
+        const msg = data.message || data.mensagem || (isValid ? 'Senha confirmada!' : 'Senha de movimentação incorreta.');
         return {
           success: isValid,
-          message: isValid ? 'Senha confirmada!' : 'Senha de movimentação incorreta.',
+          message: msg,
         };
       }
 
@@ -120,14 +165,32 @@ export class FuncionarioService {
   async cadastrarSenhaMovimentacaoInicial(funcionarioId: string, novaSenha: string): Promise<{ success: boolean; message?: string }> {
     const hash = sha256(novaSenha);
     try {
-      const { error } = await this.client
-        .from('funcionarios')
-        .update({ senha_movimentacao_hash: hash })
-        .eq('id', funcionarioId);
+      // 1. Chamar RPC oficial cadastrar_senha_movimentacao_inicial (Script 48 & 134)
+      const { data, error } = await this.client.rpc('cadastrar_senha_movimentacao_inicial', {
+        p_funcionario_id: funcionarioId,
+        p_senha_hash: hash,
+      });
+
+      if (!error && data && typeof data === 'object') {
+        const res = data as { success?: boolean; message?: string };
+        return {
+          success: Boolean(res.success),
+          message: res.message,
+        };
+      }
 
       if (error) {
-        return { success: false, message: error.message };
+        // Fallback: tentar update se tiver permissão
+        const { error: updError } = await this.client
+          .from('funcionarios')
+          .update({ senha_movimentacao_hash: hash })
+          .eq('id', funcionarioId);
+
+        if (updError) {
+          return { success: false, message: error.message || updError.message };
+        }
       }
+
       return { success: true, message: 'Senha cadastrada com sucesso!' };
     } catch (err: unknown) {
       return { success: false, message: err instanceof Error ? err.message : String(err) };

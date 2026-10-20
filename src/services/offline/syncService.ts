@@ -117,6 +117,11 @@ export class SyncService {
     }
   }
 
+  private isValidUuid(value?: string | null): boolean {
+    if (!value) return false;
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value.trim());
+  }
+
   async sincronizarPendentes(client = supabase): Promise<string | null> {
     if (this.isSyncing || this.movimentacoesOffline.length === 0) return null;
     this.isSyncing = true;
@@ -124,18 +129,44 @@ export class SyncService {
 
     const filaRestante = [...this.movimentacoesOffline];
     let erroCapturado: string | null = null;
-    let houveSucesso = false;
+    let houveAlteracao = false;
 
     for (const mov of this.movimentacoesOffline) {
+      const prodId = String(mov.produtoId || mov.produto_id || '');
+
+      // Se o produto foi registrado como mock local (não é UUID válido), descarta da fila
+      if (!this.isValidUuid(prodId)) {
+        const idx = filaRestante.indexOf(mov);
+        if (idx !== -1) {
+          filaRestante.splice(idx, 1);
+          houveAlteracao = true;
+        }
+        continue;
+      }
+
       try {
         const payload: Record<string, unknown> = {
-          produto_id: mov.produtoId || mov.produto_id,
+          produto_id: prodId,
           tipo: mov.tipo,
           quantidade: mov.quantidade,
           created_at: mov.createdAt instanceof Date ? mov.createdAt.toISOString() : (mov.createdAt || new Date().toISOString()),
         };
-        if (mov.funcionarioId || mov.funcionario_id) payload.funcionario_id = mov.funcionarioId || mov.funcionario_id;
-        if (mov.prateleiraId || mov.prateleira_id) payload.prateleira_id = mov.prateleiraId || mov.prateleira_id;
+
+        const empId = mov.empresaId || mov.empresa_id;
+        if (this.isValidUuid(empId)) {
+          payload.empresa_id = empId.trim();
+        }
+
+        const funcId = mov.funcionarioId || mov.funcionario_id;
+        if (this.isValidUuid(funcId)) {
+          payload.funcionario_id = funcId.trim();
+        }
+
+        const pratId = mov.prateleiraId || mov.prateleira_id;
+        if (this.isValidUuid(pratId)) {
+          payload.prateleira_id = pratId.trim();
+        }
+
         if (mov.observacao || mov.motivo) payload.observacao = mov.observacao || mov.motivo;
         if (mov.tipoEntrada || mov.tipo_entrada) payload.tipo_entrada = mov.tipoEntrada || mov.tipo_entrada;
         if (mov.usuarioNome || mov.usuario_nome) payload.usuario_nome = mov.usuarioNome || mov.usuario_nome;
@@ -147,7 +178,6 @@ export class SyncService {
         if (mov.latitude != null) payload.latitude = mov.latitude;
         if (mov.longitude != null) payload.longitude = mov.longitude;
         if (mov.sessionId || mov.session_id) payload.session_id = mov.sessionId || mov.session_id;
-        if (mov.empresaId || mov.empresa_id) payload.empresa_id = mov.empresaId || mov.empresa_id;
 
         const { error } = await client.from('movimentacoes').insert(payload);
         if (error) {
@@ -157,15 +187,15 @@ export class SyncService {
         const idx = filaRestante.indexOf(mov);
         if (idx !== -1) {
           filaRestante.splice(idx, 1);
+          houveAlteracao = true;
         }
-        houveSucesso = true;
       } catch (err: unknown) {
         erroCapturado = err instanceof Error ? err.message : String(err);
         break;
       }
     }
 
-    if (houveSucesso) {
+    if (houveAlteracao) {
       this.movimentacoesOffline = filaRestante;
       await this.salvarFilaOffline();
     }

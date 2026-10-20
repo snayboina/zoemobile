@@ -297,15 +297,44 @@ export const SaidaScreen: React.FC<SaidaScreenProps> = ({ onBack }) => {
     setPinError(null);
 
     try {
-      const validacao = await funcionarioService.validarSenhaMovimentacao(
-        funcionarioSelecionado.id,
-        pinDigitado
-      );
+      // 1. SE A SENHA FOI RESETADA NO PAINEL WEB: CADASTRA A NOVA SENHA!
+      if (!funcionarioSelecionado.tem_senha_movimentacao) {
+        const resCadastro = await funcionarioService.cadastrarSenhaMovimentacaoInicial(
+          funcionarioSelecionado.id,
+          pinDigitado
+        );
+        if (!resCadastro.success) {
+          if (resCadastro.message && resCadastro.message.toLowerCase().includes('já possui')) {
+            setFuncionarioSelecionado((prev) => (prev ? { ...prev, tem_senha_movimentacao: true } : null));
+            setPinError('Colaborador já possui senha cadastrada. Digite o PIN de 6 dígitos.');
+            setIsValidatingPin(false);
+            return;
+          }
+          setPinError(resCadastro.message || 'Erro ao cadastrar nova senha.');
+          setIsValidatingPin(false);
+          return;
+        }
+        // Atualiza o estado local para já reconhecer a nova senha
+        setFuncionarioSelecionado((prev) => (prev ? { ...prev, tem_senha_movimentacao: true } : null));
+      } else {
+        // 2. SE JÁ POSSUI SENHA: VALIDA NORMALMENTE
+        const validacao = await funcionarioService.validarSenhaMovimentacao(
+          funcionarioSelecionado.id,
+          pinDigitado
+        );
 
-      if (!validacao.success) {
-        setPinError(validacao.message || 'Senha de movimentação incorreta.');
-        setIsValidatingPin(false);
-        return;
+        if (!validacao.success) {
+          // Se o banco informar que a senha foi resetada para NULL:
+          if (validacao.message && validacao.message.toLowerCase().includes('sem senha')) {
+            setFuncionarioSelecionado((prev) => (prev ? { ...prev, tem_senha_movimentacao: false } : null));
+            setPinError('Senha foi resetada pelo administrador. Digite uma nova senha de 6 dígitos para cadastrar.');
+            setIsValidatingPin(false);
+            return;
+          }
+          setPinError(validacao.message || 'Senha de movimentação incorreta.');
+          setIsValidatingPin(false);
+          return;
+        }
       }
 
       setModalPinOpen(false);
@@ -637,14 +666,18 @@ export const SaidaScreen: React.FC<SaidaScreenProps> = ({ onBack }) => {
         onClose={() => setModalEpiBlocked({ isOpen: false, title: '', message: '' })}
       />
 
-      {/* MODAL DE CONFIRMAÇÃO DE SENHA / PIN DE 6 DÍGITOS */}
+      {/* MODAL DE CONFIRMAÇÃO OU CADASTRO DE SENHA / PIN DE 6 DÍGITOS */}
       <PinModal
         isOpen={modalPinOpen}
-        title="Confirmação com PIN"
+        title={
+          funcionarioSelecionado?.tem_senha_movimentacao
+            ? 'Confirmação com PIN'
+            : 'Cadastrar Nova Senha'
+        }
         subtitle={
-          funcionarioSelecionado
+          funcionarioSelecionado?.tem_senha_movimentacao
             ? `Digite a senha de 6 dígitos de ${funcionarioSelecionado.nome} para autorizar a retirada:`
-            : 'Digite a senha de 6 dígitos:'
+            : `Crie uma senha de 6 dígitos para ${funcionarioSelecionado?.nome || 'o colaborador'} autorizar retiradas:`
         }
         errorMessage={pinError}
         isLoading={isValidatingPin}

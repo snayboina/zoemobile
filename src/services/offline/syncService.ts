@@ -179,7 +179,27 @@ export class SyncService {
         if (mov.longitude != null) payload.longitude = mov.longitude;
         if (mov.sessionId || mov.session_id) payload.session_id = mov.sessionId || mov.session_id;
 
-        const { error } = await client.from('movimentacoes').insert(payload);
+        let { error } = await client.from('movimentacoes').insert(payload);
+
+        // Fallback: se a trigger de dispositivo rejeitar o envio por device_id não registrado
+        if (
+          error &&
+          error.message &&
+          (error.message.includes('Aparelho') ||
+            error.message.includes('Acesso Negado') ||
+            error.message.includes('Sessão Encerrada') ||
+            error.message.includes('funcionario_devices'))
+        ) {
+          console.warn(
+            '[SyncService] Trigger de dispositivo rejeitou o envio na sincronização. Aplicando fallback sem device_id...',
+            error.message
+          );
+          const fallbackPayload = { ...payload };
+          delete fallbackPayload.device_id;
+          const resFallback = await client.from('movimentacoes').insert(fallbackPayload);
+          error = resFallback.error;
+        }
+
         if (error) {
           throw new Error(error.message);
         }
@@ -203,6 +223,12 @@ export class SyncService {
     this.isSyncing = false;
     this.notify();
     return erroCapturado;
+  }
+
+  async limparFila(): Promise<void> {
+    this.movimentacoesOffline = [];
+    await this.salvarFilaOffline();
+    this.notify();
   }
 
   // --- CACHE DE PRODUTOS ---

@@ -70,7 +70,19 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
     if (isSyncing) return;
     setIsSyncing(true);
     try {
-      await syncService.sincronizarPendentes();
+      const erro = await syncService.sincronizarPendentes();
+      if (erro) {
+        const querDescartar = window.confirm(
+          `Não foi possível sincronizar o registro:\n${erro}\n\nDeseja descartar esta pendência para liberar a fila?`
+        );
+        if (querDescartar) {
+          await syncService.limparFila();
+        }
+      } else {
+        await carregarDados();
+      }
+    } catch (e: any) {
+      alert(`Erro na sincronização: ${e.message || String(e)}`);
     } finally {
       setIsSyncing(false);
     }

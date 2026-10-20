@@ -269,6 +269,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       await StorageAdapter.removeItem('auth_session');
       await StorageAdapter.removeItem('auth_empresa_id');
+      await StorageAdapter.removeItem('onboarding_completed');
 
       set({
         isLoading: false,
@@ -278,6 +279,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         empresaId: null,
         isDevicePending: false,
         isDeviceBlocked: false,
+        hasCompletedOnboarding: false,
         errorMessage: null,
       });
     } catch {
@@ -289,6 +291,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         empresaId: null,
         isDevicePending: false,
         isDeviceBlocked: false,
+        hasCompletedOnboarding: false,
       });
     }
   },

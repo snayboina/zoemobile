@@ -29,6 +29,11 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [produtosEstoqueBaixo, setProdutosEstoqueBaixo] = useState<ProdutoModel[]>([]);
 
+  const handleLogout = async () => {
+    await logout();
+    onNavigate('onboarding');
+  };
+
   const empId = empresaId || session?.empresaId || funcionario?.empresa_id || '';
 
   const carregarDados = async () => {
@@ -148,7 +153,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
         onRefresh={carregarDados}
         isRefreshing={isRefreshing}
         showLogout={true}
-        onLogout={logout}
+        onLogout={handleLogout}
       />
 
       {/* Banner de Sincronizações Pendentes */}

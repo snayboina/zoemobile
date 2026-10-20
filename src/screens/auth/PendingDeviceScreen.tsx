@@ -34,7 +34,7 @@ export const PendingDeviceScreen: React.FC<PendingDeviceScreenProps> = ({ onNavi
       errorMessage: null,
     });
     await logout();
-    onNavigate('login');
+    onNavigate('onboarding');
   };
 
   return (

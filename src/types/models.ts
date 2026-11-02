@@ -222,6 +222,7 @@ export interface MovimentacaoModel {
 }
 
 export function parseMovimentacaoFromDb(json: Record<string, any>): MovimentacaoModel {
+  const dataCriacao = json.data_hora || json.created_at || json.createdAt;
   return {
     id: json.id,
     produtoId: json.produto_id || json.produtoId || '',
@@ -231,9 +232,9 @@ export function parseMovimentacaoFromDb(json: Record<string, any>): Movimentacao
     quantidade: Number(json.quantidade || 0),
     observacao: json.observacao || null,
     tipoEntrada: json.tipo_entrada || json.tipoEntrada || null,
-    createdAt: json.created_at ? new Date(json.created_at) : null,
-    nomeProduto: json.produtos?.nome || json.nomeProduto || null,
-    nomeFuncionario: json.funcionarios?.nome || json.nomeFuncionario || null,
+    createdAt: dataCriacao ? new Date(dataCriacao) : null,
+    nomeProduto: json.produto || json.produtos?.nome || json.nomeProduto || null,
+    nomeFuncionario: json.funcionario || json.funcionarios?.nome || json.nomeFuncionario || null,
     usuarioNome: json.usuario_nome || json.usuarioNome || null,
     usuarioMatricula: json.usuario_matricula || json.usuarioMatricula || null,
     deviceId: json.device_id || json.deviceId || null,
@@ -266,10 +267,14 @@ export interface InventarioModel {
   quantidadeReal: number;
   diferenca: number;
   observacao?: string | null;
+  prateleiraId?: string | null;
+  empresaId?: string;
   createdAt?: string | Date | null;
 
   produto_id?: string;
   usuario_id?: string;
+  prateleira_id?: string | null;
+  empresa_id?: string;
   quantidade_sistema?: number;
   quantidade_real?: number;
   created_at?: string;

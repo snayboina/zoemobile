@@ -3115,3 +3115,50 @@ body, html {
   background-color: #E2E8F0;
 }
 
+/* Card de Divergência do Inventário */
+.inventario-card-divergencia {
+  background-color: #F8FAFC;
+  border: 1px solid #E2E8F0;
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin: 12px 0 16px 0;
+}
+
+.divergencia-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.divergencia-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.divergencia-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #64748B;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.divergencia-value {
+  font-size: 18px;
+  font-weight: 800;
+  color: #0F172A;
+}
+
+.divergencia-value.green {
+  color: #16A34A;
+}
+
+.divergencia-value.red {
+  color: #DC2626;
+}
+
+.divergencia-value.neutral {
+  color: #64748B;
+}
+

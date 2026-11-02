@@ -3,6 +3,7 @@ import { parseProdutoFromDb, isConformidadeVencida } from '../types/models';
 import { supabase } from './supabase/client';
 import { syncService } from './offline/syncService';
 import type { SyncService } from './offline/syncService';
+import { StorageAdapter } from './offline/storageAdapter';
 
 export class ProdutoService {
   private client: any;
@@ -42,171 +43,22 @@ export class ProdutoService {
       } else if (typeof confRaw === 'object') {
         jsonEnriquecido.conformidade = confRaw;
       }
+    } else if (json.tipo_controle) {
+      jsonEnriquecido.conformidade = {
+        tipo_controle: json.tipo_controle,
+        numero_ca: json.numero_ca,
+        data_validade: json.validade_ca,
+        bloquear_vencido: Boolean(json.bloquear_vencido),
+        status_manual: json.status_conformidade || 'REGULAR',
+      };
     }
 
     return parseProdutoFromDb(jsonEnriquecido);
   }
 
-  private getContingenciaProdutos(empresaId: string): ProdutoModel[] {
-    const hoje = new Date();
-    const anoAtual = hoje.getFullYear();
-    const vencidoData = `${anoAtual - 1}-03-20`;
-    const validoData = `${anoAtual + 3}-11-15`;
-
-    return [
-      {
-        id: 'prod-001',
-        nome: 'Luva de Vaqueta Mista Petroleira Cano Curto',
-        codigo: 'EPI-001',
-        codigo_barras: '7891000000011',
-        estoqueAtual: 45,
-        estoqueMinimo: 10,
-        consumo: false,
-        empresa_id: empresaId, ativo: true,
-        excluido: false,
-        conformidade: {
-          tipo_controle: 'CA',
-          numero_ca: '15432',
-          data_validade: validoData,
-          bloquear_vencido: true,
-          status_manual: 'REGULAR',
-        },
-      },
-      {
-        id: 'prod-002',
-        nome: 'Capacete de Segurança Classe B c/ Jugular Aba Frontal',
-        codigo: 'EPI-002',
-        codigo_barras: '7891000000028',
-        estoqueAtual: 28,
-        estoqueMinimo: 5,
-        consumo: false,
-        empresa_id: empresaId, ativo: true,
-        excluido: false,
-        conformidade: {
-          tipo_controle: 'CA',
-          numero_ca: '29871',
-          data_validade: validoData,
-          bloquear_vencido: true,
-          status_manual: 'REGULAR',
-        },
-      },
-      {
-        id: 'prod-003',
-        nome: 'Bota de Segurança Nobuck c/ Bico Composite Nº 41',
-        codigo: 'EPI-003',
-        codigo_barras: '7891000000035',
-        estoqueAtual: 16,
-        estoqueMinimo: 4,
-        consumo: false,
-        empresa_id: empresaId, ativo: true,
-        excluido: false,
-        conformidade: {
-          tipo_controle: 'CA',
-          numero_ca: '38910',
-          data_validade: validoData,
-          bloquear_vencido: true,
-          status_manual: 'REGULAR',
-        },
-      },
-      {
-        id: 'prod-004',
-        nome: 'Óculos de Proteção Antirrisco e Antiembaçante',
-        codigo: 'EPI-004',
-        codigo_barras: '7891000000042',
-        estoqueAtual: 50,
-        estoqueMinimo: 10,
-        consumo: false,
-        empresa_id: empresaId, ativo: true,
-        excluido: false,
-        conformidade: {
-          tipo_controle: 'CA',
-          numero_ca: '10344',
-          data_validade: validoData,
-          bloquear_vencido: true,
-          status_manual: 'REGULAR',
-        },
-      },
-      {
-        id: 'prod-005',
-        nome: 'Cinto Paraquedista 3 Pontos com Talabarte Duplo Y',
-        codigo: 'EPI-005',
-        codigo_barras: '7891000000059',
-        estoqueAtual: 12,
-        estoqueMinimo: 3,
-        consumo: false,
-        empresa_id: empresaId, ativo: true,
-        excluido: false,
-        conformidade: {
-          tipo_controle: 'CA',
-          numero_ca: '16890',
-          data_validade: validoData,
-          bloquear_vencido: true,
-          status_manual: 'REGULAR',
-        },
-      },
-      {
-        id: 'prod-006',
-        nome: 'Protetor Auditivo Plug Silicone (CA VENCIDO - TRAVA RN-08)',
-        codigo: 'EPI-006',
-        codigo_barras: '7891000000066',
-        estoqueAtual: 30,
-        estoqueMinimo: 10,
-        consumo: false,
-        empresa_id: empresaId, ativo: true,
-        excluido: false,
-        conformidade: {
-          tipo_controle: 'CA',
-          numero_ca: '09876',
-          data_validade: vencidoData,
-          bloquear_vencido: true,
-          status_manual: 'REGULAR',
-        },
-      },
-      {
-        id: 'prod-007',
-        nome: 'Fita Isolante de Alta Tensão 3M 19mm x 20m',
-        codigo: 'MAT-001',
-        codigo_barras: '7891000000073',
-        estoqueAtual: 75,
-        estoqueMinimo: 15,
-        consumo: true,
-        empresa_id: empresaId, ativo: true,
-        excluido: false,
-      },
-      {
-        id: 'prod-008',
-        nome: 'Multímetro Digital Cat III 600V Fluke True-RMS',
-        codigo: 'FER-001',
-        codigo_barras: '7891000000080',
-        estoqueAtual: 7,
-        estoqueMinimo: 2,
-        consumo: false,
-        empresa_id: empresaId, ativo: true,
-        excluido: false,
-      },
-      {
-        id: 'prod-009',
-        nome: 'Alicate Universal Isolado 1000V Tramontina PRO 8 pol',
-        codigo: 'FER-002',
-        codigo_barras: '7891000000097',
-        estoqueAtual: 14,
-        estoqueMinimo: 3,
-        consumo: false,
-        empresa_id: empresaId, ativo: true,
-        excluido: false,
-      },
-      {
-        id: 'prod-010',
-        nome: 'Conector de Emenda Rápida 3 Vias WAGO 221-413 (pct 50)',
-        codigo: 'MAT-002',
-        codigo_barras: '7891000000103',
-        estoqueAtual: 120,
-        estoqueMinimo: 20,
-        consumo: true,
-        empresa_id: empresaId, ativo: true,
-        excluido: false,
-      },
-    ];
+  private isValidUuid(value?: string | null): boolean {
+    if (!value) return false;
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value.trim());
   }
 
   async getProdutoByCodigo(codigo: string, empresaId?: string): Promise<ProdutoModel | null> {
@@ -214,8 +66,18 @@ export class ProdutoService {
     if (!codLimpo) return null;
 
     try {
-      // 1. Tentar busca com joins para a empresa especificada
-      if (empresaId && empresaId.trim() !== '') {
+      // 1. Tentar localizar na lista carregada da empresa (inclui produtos via RPC)
+      const lista = await this.listarProdutos(empresaId);
+      const found = lista.find(
+        (p) =>
+          p.codigo === codLimpo ||
+          p.codigo_barras === codLimpo ||
+          p.id === codLimpo
+      );
+      if (found) return found;
+
+      // 2. Se for UUID ou código no Supabase
+      if (empresaId && this.isValidUuid(empresaId)) {
         const resEmp = await this.client
           .from('produtos')
           .select('*, estoque_atual(*), produto_conformidade(*)')
@@ -228,50 +90,141 @@ export class ProdutoService {
           return this.mapProdutoJson(resEmp.data);
         }
       }
-
-      // 2. Busca geral no catálogo do Supabase (sem restrição de empresa)
-      const resFull = await this.client
-        .from('produtos')
-        .select('*, estoque_atual(*), produto_conformidade(*)')
-        .or(`codigo_barras.eq.${codLimpo},id.eq.${codLimpo}`)
-        .eq('excluido', false)
-        .maybeSingle();
-
-      if (resFull.data) {
-        return this.mapProdutoJson(resFull.data);
-      }
-
-      // 3. Fallback para select simples
-      const resSimple = await this.client
-        .from('produtos')
-        .select('*')
-        .or(`codigo_barras.eq.${codLimpo},id.eq.${codLimpo}`)
-        .eq('excluido', false)
-        .maybeSingle();
-
-      if (resSimple.data) {
-        return this.mapProdutoJson(resSimple.data);
-      }
     } catch (_) {}
 
-    // 4. Fallback no cache ou produtos de contingência
+    // 3. Fallback no cache
     const cache = await this.sync.obterProdutosCache(empresaId || 'default');
-    const lista = cache.length > 0 ? cache : this.getContingenciaProdutos(empresaId || 'default');
-    const found = lista.find(
+    const item = cache.find(
       (p) =>
         p.codigo === codLimpo ||
         p.codigo_barras === codLimpo ||
         p.id === codLimpo
     );
-    return found || null;
+    return item || null;
   }
 
   async listarProdutos(empresaId?: string): Promise<ProdutoModel[]> {
-    try {
-      const empFiltro = (empresaId || '').trim();
+    let empFiltro = (empresaId || '').trim();
 
-      // 1. Se informada empresaId, tentar carregar produtos vinculados a esta empresa
-      if (empFiltro) {
+    // Se empresaId não foi fornecido ou não é UUID válido, recuperar da sessão salva
+    if (!this.isValidUuid(empFiltro)) {
+      try {
+        const savedEmpId = await StorageAdapter.getItem('auth_empresa_id');
+        if (this.isValidUuid(savedEmpId)) {
+          empFiltro = savedEmpId!.trim();
+        } else {
+          const rawSess = await StorageAdapter.getItem('auth_session');
+          if (rawSess) {
+            const s = JSON.parse(rawSess);
+            const sEmp = s.empresaId || s.empresa_id;
+            if (this.isValidUuid(sEmp)) empFiltro = sEmp.trim();
+          }
+        }
+      } catch (_) {}
+    }
+
+    try {
+      // 1. Chamar RPC oficial listar_estoque_detalhado (utilizada no ZoeStock Web para saldos reais)
+      if (this.isValidUuid(empFiltro)) {
+        const { data: estDetalhado, error: estErr } = await this.client.rpc('listar_estoque_detalhado', {
+          p_empresa_id: empFiltro,
+        });
+
+        if (!estErr && Array.isArray(estDetalhado) && estDetalhado.length > 0) {
+          const estoqueMap = new Map<string, ProdutoModel>();
+
+          for (const item of estDetalhado) {
+            const pid = String(item.produto_id);
+            const qtd = Number(item.quantidade || 0);
+
+            if (!estoqueMap.has(pid)) {
+              estoqueMap.set(pid, {
+                id: pid,
+                nome: item.produto_nome || '',
+                codigo: item.codigo_barras || '',
+                codigo_barras: item.codigo_barras || '',
+                categoria: item.categoria || null,
+                unidade: item.unidade_medida || 'UN',
+                unidade_medida: item.unidade_medida || 'UN',
+                estoqueAtual: qtd,
+                estoque_atual: qtd,
+                estoqueMinimo: Number(item.estoque_minimo || 0),
+                estoque_minimo: Number(item.estoque_minimo || 0),
+                consumo: Boolean(item.consumo),
+                ativo: true,
+                excluido: false,
+                empresa_id: item.empresa_id || empFiltro,
+                ehEpi: Boolean(item.eh_epi),
+                eh_epi: Boolean(item.eh_epi),
+                caNumero: item.ca_numero || null,
+                ca_numero: item.ca_numero || null,
+                prateleiraId: item.prateleira || null,
+                prateleira_id: item.prateleira || null,
+                conformidade: item.ca_numero
+                  ? {
+                      tipo_controle: 'CA',
+                      numero_ca: item.ca_numero,
+                      data_validade: undefined,
+                      bloquear_vencido: false,
+                      status_manual: 'REGULAR',
+                    }
+                  : null,
+              });
+            } else {
+              const existente = estoqueMap.get(pid)!;
+              existente.estoqueAtual = (existente.estoqueAtual ?? 0) + qtd;
+              existente.estoque_atual = (existente.estoque_atual ?? 0) + qtd;
+            }
+          }
+
+          // Enriquecer com listar_produtos_empresa para garantir conformidades completas e produtos zerados
+          try {
+            const { data: rpcProds } = await this.client.rpc('listar_produtos_empresa', {
+              p_empresa_id: empFiltro,
+            });
+
+            if (Array.isArray(rpcProds)) {
+              for (const raw of rpcProds) {
+                const pid = String(raw.id);
+                if (!estoqueMap.has(pid)) {
+                  estoqueMap.set(pid, this.mapProdutoJson(raw));
+                } else {
+                  const p = estoqueMap.get(pid)!;
+                  if (!p.conformidade && raw.tipo_controle) {
+                    p.conformidade = {
+                      tipo_controle: raw.tipo_controle,
+                      numero_ca: raw.numero_ca,
+                      data_validade: raw.validade_ca,
+                      bloquear_vencido: Boolean(raw.bloquear_vencido),
+                      status_manual: raw.status_conformidade || 'REGULAR',
+                    };
+                  }
+                }
+              }
+            }
+          } catch (_) {}
+
+          const list = Array.from(estoqueMap.values());
+          await this.sync.salvarProdutosCache(list, empFiltro);
+          return list;
+        }
+
+        // 2. Se listar_estoque_detalhado não retornar, tentar listar_produtos_empresa
+        const { data: rpcProds, error: rpcErr } = await this.client.rpc('listar_produtos_empresa', {
+          p_empresa_id: empFiltro,
+        });
+
+        if (!rpcErr && Array.isArray(rpcProds) && rpcProds.length > 0) {
+          const list = (rpcProds as Array<Record<string, any>>).map((json) =>
+            this.mapProdutoJson(json)
+          );
+          await this.sync.salvarProdutosCache(list, empFiltro);
+          return list;
+        }
+      }
+
+      // 3. Fallback query direta se RLS permitir
+      if (this.isValidUuid(empFiltro)) {
         const { data, error } = await this.client
           .from('produtos')
           .select('*, estoque_atual(*), produto_conformidade(*)')
@@ -279,76 +232,29 @@ export class ProdutoService {
           .eq('empresa_id', empFiltro)
           .order('nome', { ascending: true });
 
-        if (!error && data && data.length > 0) {
-          const list = (data as Array<Record<string, any>>).map((json) =>
-            this.mapProdutoJson(json)
-          );
-          await this.sync.salvarProdutosCache(list, empFiltro);
-          return list;
-        }
-
-        // Se query com join falhou, tentar select simples na empresa
-        if (error) {
-          const resSimples = await this.client
-            .from('produtos')
-            .select('*')
-            .eq('excluido', false)
-            .eq('empresa_id', empFiltro)
-            .order('nome', { ascending: true });
-
-          if (!resSimples.error && resSimples.data && resSimples.data.length > 0) {
-            const list = (resSimples.data as Array<Record<string, any>>).map((json) =>
+        if (!error && Array.isArray(data)) {
+          if (data.length > 0) {
+            const list = (data as Array<Record<string, any>>).map((json) =>
               this.mapProdutoJson(json)
             );
             await this.sync.salvarProdutosCache(list, empFiltro);
             return list;
+          } else {
+            await this.sync.salvarProdutosCache([], empFiltro);
+            return [];
           }
         }
-      }
-
-      // 2. Busca geral de todos os produtos ativos cadastrados no Supabase
-      // (Utilizado quando a empresa do operador não possui itens próprios ou empresaId é genérico)
-      const resGeral = await this.client
-        .from('produtos')
-        .select('*, estoque_atual(*), produto_conformidade(*)')
-        .eq('excluido', false)
-        .order('nome', { ascending: true });
-
-      if (!resGeral.error && resGeral.data && resGeral.data.length > 0) {
-        const list = (resGeral.data as Array<Record<string, any>>).map((json) =>
-          this.mapProdutoJson(json)
-        );
-        await this.sync.salvarProdutosCache(list, empFiltro || 'default');
-        return list;
-      }
-
-      // 3. Fallback select simples geral
-      const resGeralSimples = await this.client
-        .from('produtos')
-        .select('*')
-        .eq('excluido', false)
-        .order('nome', { ascending: true });
-
-      if (!resGeralSimples.error && resGeralSimples.data && resGeralSimples.data.length > 0) {
-        const list = (resGeralSimples.data as Array<Record<string, any>>).map((json) =>
-          this.mapProdutoJson(json)
-        );
-        await this.sync.salvarProdutosCache(list, empFiltro || 'default');
-        return list;
       }
     } catch (err) {
       console.warn('Falha na consulta ao Supabase de produtos:', err);
     }
 
-    // 4. Fallback: obter cache salvo ou catálogo de contingência
-    const cache = await this.sync.obterProdutosCache(empresaId || 'default');
-    if (cache.length > 0) {
+    // 3. Fallback: retornar cache offline ou vazio se o banco estiver limpo
+    if (this.isValidUuid(empFiltro)) {
+      const cache = await this.sync.obterProdutosCache(empFiltro);
       return cache;
     }
-
-    const contingencia = this.getContingenciaProdutos(empresaId || 'default');
-    await this.sync.salvarProdutosCache(contingencia, empresaId || 'default');
-    return contingencia;
+    return [];
   }
 
   async getProdutosByPrateleira(prateleiraId: string, empresaId?: string): Promise<ProdutoModel[]> {

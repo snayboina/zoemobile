@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import {
   CheckCircle2,
   AlertCircle,
@@ -8,6 +8,8 @@ import {
   Package,
   Search,
   QrCode,
+  PackageOpen,
+  RefreshCw,
 } from 'lucide-react';
 import { Header } from '../../components/common/Header';
 import { QuantitySelector } from '../../components/operations/QuantitySelector';
@@ -18,8 +20,9 @@ import { SearchableSelect, type SearchableOption } from '../../components/common
 import { useAuthStore } from '../../store/useAuthStore';
 import { produtoService } from '../../services/produtoService';
 import { funcionarioService } from '../../services/funcionarioService';
-import { movimentacaoService } from '../../services/movimentacaoService';
+import { movimentacaoService, type PendenciaColaborador } from '../../services/movimentacaoService';
 import { OfflineQueueException } from '../../services/exceptions';
+import { StorageAdapter } from '../../services/offline/storageAdapter';
 import { isConformidadeVencida, type ProdutoModel, type FuncionarioModel, type MovimentacaoModel } from '../../types/models';
 
 interface ItemCarrinho {
@@ -35,7 +38,21 @@ interface SaidaScreenProps {
 
 export const SaidaScreen: React.FC<SaidaScreenProps> = ({ onBack }) => {
   const { funcionario, session, empresaId, device } = useAuthStore();
-  const empId = empresaId || session?.empresaId || funcionario?.empresa_id || '';
+  const [empresaAtivaId, setEmpresaAtivaId] = useState<string>(
+    empresaId || session?.empresaId || (session as any)?.empresa_id || funcionario?.empresa_id || ''
+  );
+  const empId = empresaAtivaId || empresaId || session?.empresaId || (session as any)?.empresa_id || funcionario?.empresa_id || '';
+
+  // Resgata auth_empresa_id do storage local caso a sessão esteja sem o campo explícito
+  useEffect(() => {
+    if (!empId) {
+      StorageAdapter.getItem('auth_empresa_id').then((savedId) => {
+        if (savedId && savedId.trim() !== '') {
+          setEmpresaAtivaId(savedId.trim());
+        }
+      });
+    }
+  }, [empId]);
 
   // Estados dos Colaboradores
   const [funcionarios, setFuncionarios] = useState<FuncionarioModel[]>([]);
@@ -43,6 +60,8 @@ export const SaidaScreen: React.FC<SaidaScreenProps> = ({ onBack }) => {
   const [crachaBusca, setCrachaBusca] = useState<string>('');
   const [isLoadingFuncionarios, setIsLoadingFuncionarios] = useState<boolean>(false);
   const [isScannerCrachaOpen, setIsScannerCrachaOpen] = useState<boolean>(false);
+  const [pendenciasColaborador, setPendenciasColaborador] = useState<PendenciaColaborador[]>([]);
+  const [isLoadingPendencias, setIsLoadingPendencias] = useState<boolean>(false);
 
   // Estados dos Produtos
   const [produtos, setProdutos] = useState<ProdutoModel[]>([]);
@@ -111,6 +130,43 @@ export const SaidaScreen: React.FC<SaidaScreenProps> = ({ onBack }) => {
     };
   }, [empId]);
 
+  // Carregar itens em posse do colaborador que NÃO são de consumo
+  const carregarPendenciasColaborador = useCallback(
+    async (funcId: string, customEmpId?: string) => {
+      setIsLoadingPendencias(true);
+      try {
+        const empAlvo = customEmpId || funcionarioSelecionado?.empresa_id || funcionarioSelecionado?.empresaId || empId;
+        const pends = await movimentacaoService.getPendenciasFuncionario(funcId, empAlvo);
+        // Filtrar estritamente apenas os itens que NÃO são de consumo
+        const itensNaoConsumo = pends.filter((p) => {
+          if (p.consumo === true) return false;
+          const prodObj = produtos.find((prod) => prod.id === p.produto_id);
+          if (prodObj && prodObj.consumo === true) return false;
+          return p.saldo_pendente > 0;
+        });
+        setPendenciasColaborador(itensNaoConsumo);
+      } catch (err) {
+        console.warn('Erro ao carregar itens sob posse do colaborador na saída:', err);
+        setPendenciasColaborador([]);
+      } finally {
+        setIsLoadingPendencias(false);
+      }
+    },
+    [empId, funcionarioSelecionado, produtos]
+  );
+
+  useEffect(() => {
+    if (funcionarioSelecionado?.id) {
+      const empColab = funcionarioSelecionado.empresa_id || funcionarioSelecionado.empresaId;
+      if (empColab && empColab !== empresaAtivaId) {
+        setEmpresaAtivaId(empColab);
+      }
+      carregarPendenciasColaborador(funcionarioSelecionado.id, empColab || empId);
+    } else {
+      setPendenciasColaborador([]);
+    }
+  }, [funcionarioSelecionado?.id, carregarPendenciasColaborador, empresaAtivaId, empId]);
+
   // Opções formatadas para o Dropdown Pesquisável de Colaboradores
   const funcionarioOptions: SearchableOption[] = useMemo(() => {
     return funcionarios.map((f) => ({
@@ -171,6 +227,13 @@ export const SaidaScreen: React.FC<SaidaScreenProps> = ({ onBack }) => {
     if (fLocal) {
       setFuncionarioSelecionado(fLocal);
       setCrachaBusca(fLocal.cracha);
+      const funcEmp = fLocal.empresa_id || fLocal.empresaId;
+      if (funcEmp) {
+        setEmpresaAtivaId(funcEmp);
+        produtoService.listarProdutos(funcEmp).then((p) => {
+          if (p && p.length > 0) setProdutos(p);
+        });
+      }
       return;
     }
 
@@ -183,6 +246,13 @@ export const SaidaScreen: React.FC<SaidaScreenProps> = ({ onBack }) => {
         setCrachaBusca(func.cracha);
         if (!funcionarios.some((x) => x.id === func.id)) {
           setFuncionarios((prev) => [...prev, func]);
+        }
+        const funcEmp = func.empresa_id || func.empresaId;
+        if (funcEmp) {
+          setEmpresaAtivaId(funcEmp);
+          produtoService.listarProdutos(funcEmp).then((p) => {
+            if (p && p.length > 0) setProdutos(p);
+          });
         }
       } else {
         setMensagemErro('Colaborador não encontrado com este crachá.');
@@ -341,6 +411,7 @@ export const SaidaScreen: React.FC<SaidaScreenProps> = ({ onBack }) => {
       setIsLoadingGeral(true);
 
       const currentUser = funcionario;
+      const empresaOperacao = funcionarioSelecionado.empresa_id || funcionarioSelecionado.empresaId || empId;
       let sucessoQtd = 0;
 
       for (const item of carrinho) {
@@ -360,7 +431,7 @@ export const SaidaScreen: React.FC<SaidaScreenProps> = ({ onBack }) => {
         await movimentacaoService.registrarMovimentacao(
           mov,
           {
-            empresaId: empId,
+            empresaId: empresaOperacao,
             funcionarioId: funcionarioSelecionado.id,
             funcionarioNome: funcionarioSelecionado.nome,
             funcionarioCracha: funcionarioSelecionado.cracha,
@@ -374,6 +445,13 @@ export const SaidaScreen: React.FC<SaidaScreenProps> = ({ onBack }) => {
 
       setMensagemSucesso(`${sucessoQtd} produto(s) retirado(s) com sucesso para ${funcionarioSelecionado.nome}!`);
       setCarrinho([]);
+
+      // Atualiza imediatamente a lista de itens sob posse e o catálogo de produtos da empresa
+      carregarPendenciasColaborador(funcionarioSelecionado.id, empresaOperacao);
+      produtoService.listarProdutos(empresaOperacao).then((p) => {
+        if (p && p.length > 0) setProdutos(p);
+      });
+
       setTimeout(() => {
         onBack();
       }, 1500);
@@ -483,25 +561,130 @@ export const SaidaScreen: React.FC<SaidaScreenProps> = ({ onBack }) => {
 
           {/* Card do Colaborador Selecionado */}
           {funcionarioSelecionado && (
-            <div className="colaborador-card" style={{ borderLeft: '4px solid #D32F2F', backgroundColor: '#fdf7f7' }}>
-              <div className="colaborador-icon" style={{ background: '#FFEBEE' }}>
-                <User size={24} color="#D32F2F" />
-              </div>
-              <div className="colaborador-body">
-                <div className="colaborador-name" style={{ color: '#B71C1C', fontWeight: 'bold' }}>
-                  {funcionarioSelecionado.nome}
+            <>
+              <div className="colaborador-card" style={{ borderLeft: '4px solid #D32F2F', backgroundColor: '#fdf7f7' }}>
+                <div className="colaborador-icon" style={{ background: '#FFEBEE' }}>
+                  <User size={24} color="#D32F2F" />
                 </div>
-                <div className="colaborador-meta">
-                  <span><strong>Crachá:</strong> {funcionarioSelecionado.cracha}</span>
-                  {funcionarioSelecionado.departamento && (
-                    <span> | <strong>Setor:</strong> {funcionarioSelecionado.departamento}</span>
-                  )}
-                  {funcionarioSelecionado.funcao && (
-                    <span> | <strong>Função:</strong> {funcionarioSelecionado.funcao}</span>
-                  )}
+                <div className="colaborador-body">
+                  <div className="colaborador-name" style={{ color: '#B71C1C', fontWeight: 'bold' }}>
+                    {funcionarioSelecionado.nome}
+                  </div>
+                  <div className="colaborador-meta">
+                    <span><strong>Crachá:</strong> {funcionarioSelecionado.cracha}</span>
+                    {funcionarioSelecionado.departamento && (
+                      <span> | <strong>Setor:</strong> {funcionarioSelecionado.departamento}</span>
+                    )}
+                    {funcionarioSelecionado.funcao && (
+                      <span> | <strong>Função:</strong> {funcionarioSelecionado.funcao}</span>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
+
+              {/* LISTA DE ITENS SOB POSSE PARA DEVOLUÇÃO (APENAS NÃO-CONSUMO) */}
+              <div
+                className="colaborador-pendencias-container"
+                style={{
+                  marginTop: '10px',
+                  borderRadius: '12px',
+                  backgroundColor: '#FFFFFF',
+                  border: '1px solid #FED7AA',
+                  padding: '12px 14px',
+                  boxShadow: '0 2px 6px rgba(234, 88, 12, 0.05)',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <PackageOpen size={18} color="#EA580C" />
+                    <span style={{ fontSize: '13px', fontWeight: 700, color: '#9A3412' }}>
+                      Itens sob posse para devolução (Não-consumo)
+                    </span>
+                  </div>
+                  {isLoadingPendencias ? (
+                    <RefreshCw size={14} className="spin" color="#EA580C" />
+                  ) : (
+                    <span
+                      style={{
+                        backgroundColor: pendenciasColaborador.length > 0 ? '#FFEDD5' : '#DCFCE7',
+                        color: pendenciasColaborador.length > 0 ? '#C2410C' : '#15803D',
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        padding: '2px 8px',
+                        borderRadius: '999px',
+                        border: `1px solid ${pendenciasColaborador.length > 0 ? '#FDBA74' : '#86EFAC'}`,
+                      }}
+                    >
+                      {pendenciasColaborador.length} {pendenciasColaborador.length === 1 ? 'item' : 'itens'}
+                    </span>
+                  )}
+                </div>
+
+                {isLoadingPendencias ? (
+                  <div style={{ padding: '8px 0', fontSize: '12px', color: '#94A3B8', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span>Consultando itens sob posse deste colaborador...</span>
+                  </div>
+                ) : pendenciasColaborador.length === 0 ? (
+                  <div
+                    style={{
+                      padding: '8px 10px',
+                      backgroundColor: '#F0FDF4',
+                      border: '1px solid #DCFCE7',
+                      borderRadius: '8px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      color: '#166534',
+                      fontSize: '12px',
+                    }}
+                  >
+                    <CheckCircle2 size={16} color="#16A34A" />
+                    <span>Nenhum equipamento ou EPI pendente de devolução em nome deste colaborador.</span>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    {pendenciasColaborador.map((p, idx) => (
+                      <div
+                        key={`${p.produto_id}-${idx}`}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          padding: '8px 10px',
+                          backgroundColor: '#FFF7ED',
+                          border: '1px solid #FFEDD5',
+                          borderRadius: '8px',
+                        }}
+                      >
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: 0, flex: 1, paddingRight: '8px' }}>
+                          <span style={{ fontSize: '13px', fontWeight: 600, color: '#1E293B', wordBreak: 'break-word' }}>
+                            {p.nome}
+                          </span>
+                          <div style={{ display: 'flex', gap: '8px', fontSize: '11px', color: '#64748B', flexWrap: 'wrap' }}>
+                            {p.categoria && <span>{p.categoria}</span>}
+                            {p.ca_numero && <span>CA: {p.ca_numero}</span>}
+                            <span style={{ color: '#EA580C', fontWeight: 500 }}>• Equipamento / Carga</span>
+                          </div>
+                        </div>
+                        <span
+                          style={{
+                            backgroundColor: '#EA580C',
+                            color: '#FFFFFF',
+                            fontSize: '12px',
+                            fontWeight: 700,
+                            padding: '3px 8px',
+                            borderRadius: '6px',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {p.saldo_pendente} UN
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </>
           )}
 
           {/* SESSÃO 2: SELECIONAR PRODUTO PARA SAÍDA */}

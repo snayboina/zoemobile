@@ -5,6 +5,7 @@ import { SearchableSelect, type SearchableOption } from '../../components/common
 import { useAuthStore } from '../../store/useAuthStore';
 import { produtoService } from '../../services/produtoService';
 import { prateleiraService } from '../../services/prateleiraService';
+import { StorageAdapter } from '../../services/offline/storageAdapter';
 import type { ProdutoModel, PrateleiraModel } from '../../types/models';
 
 interface LocalizacaoScreenProps {
@@ -13,7 +14,10 @@ interface LocalizacaoScreenProps {
 
 export const LocalizacaoScreen: React.FC<LocalizacaoScreenProps> = ({ onBack }) => {
   const { session, funcionario, empresaId } = useAuthStore();
-  const empId = empresaId || session?.empresaId || funcionario?.empresa_id || '';
+  const [empresaAtivaId, setEmpresaAtivaId] = useState<string>(
+    empresaId || session?.empresaId || (session as any)?.empresa_id || funcionario?.empresa_id || ''
+  );
+  const empId = empresaAtivaId || empresaId || session?.empresaId || (session as any)?.empresa_id || funcionario?.empresa_id || '';
 
   const [activeTab, setActiveTab] = useState<'produto' | 'prateleira'>('produto');
   const [produtos, setProdutos] = useState<ProdutoModel[]>([]);
@@ -26,6 +30,16 @@ export const LocalizacaoScreen: React.FC<LocalizacaoScreenProps> = ({ onBack }) 
   const [prateleiraSelecionada, setPrateleiraSelecionada] = useState<PrateleiraModel | null>(null);
   const [produtosNaPrateleira, setProdutosNaPrateleira] = useState<ProdutoModel[]>([]);
   const [isLoadingPrat, setIsLoadingPrat] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (!empId) {
+      StorageAdapter.getItem('auth_empresa_id').then((savedId) => {
+        if (savedId && savedId.trim() !== '') {
+          setEmpresaAtivaId(savedId.trim());
+        }
+      });
+    }
+  }, [empId]);
 
   useEffect(() => {
     async function carregar() {
@@ -58,26 +72,45 @@ export const LocalizacaoScreen: React.FC<LocalizacaoScreenProps> = ({ onBack }) 
   const prateleiraOptions: SearchableOption[] = useMemo(() => {
     return prateleiras.map((prat) => ({
       value: prat.id || prat.codigoLocalizacao,
-      label: prat.codigoLocalizacao,
+      label: `Prateleira ${prat.codigoLocalizacao}`,
+      code: prat.codigoLocalizacao,
       sublabel: prat.zona ? `Zona: ${prat.zona}` : undefined,
+      type: 'default' as const,
       badge: {
-        text: prat.zona ? `Zona ${prat.zona}` : 'Depósito',
+        text: prat.zona ? prat.zona : 'Depósito',
         variant: 'neutral' as const,
       },
     }));
   }, [prateleiras]);
 
-  const handleSelecionarPrateleira = async (pratId: string) => {
-    const prat = prateleiras.find((p) => p.id === pratId) || null;
+  const handleSelecionarPrateleira = async (pratIdOrCode: string) => {
+    const termo = (pratIdOrCode || '').trim().toLowerCase();
+    const prat =
+      prateleiras.find(
+        (p) =>
+          p.id?.toLowerCase() === termo ||
+          p.codigoLocalizacao?.toLowerCase() === termo ||
+          (p as any).codigo_localizacao?.toLowerCase() === termo
+      ) || null;
+
     setPrateleiraSelecionada(prat);
     if (!prat) {
       setProdutosNaPrateleira([]);
       return;
     }
+
     setIsLoadingPrat(true);
     try {
-      const prods = await produtoService.getProdutosByPrateleira(prat.id!, empId);
-      setProdutosNaPrateleira(prods);
+      const todosProds = await produtoService.listarProdutos(empId);
+      const pratCodigo = (prat.codigoLocalizacao || '').trim().toLowerCase();
+      const pratId = (prat.id || '').trim().toLowerCase();
+
+      const filtrados = todosProds.filter((p) => {
+        const prodPratId = (p.prateleiraId || p.prateleira_id || '').trim().toLowerCase();
+        return prodPratId === pratId || prodPratId === pratCodigo;
+      });
+
+      setProdutosNaPrateleira(filtrados);
     } catch (_) {
       setProdutosNaPrateleira([]);
     } finally {
@@ -85,10 +118,19 @@ export const LocalizacaoScreen: React.FC<LocalizacaoScreenProps> = ({ onBack }) 
     }
   };
 
-  const getNomePrateleira = (pratId?: string | null) => {
-    if (!pratId) return 'Sem prateleira vinculada';
-    const p = prateleiras.find((x) => x.id === pratId);
-    return p ? `${p.codigoLocalizacao} (${p.zona})` : 'Localização não identificada';
+  const getNomePrateleira = (pratIdOrCode?: string | null) => {
+    if (!pratIdOrCode || pratIdOrCode.trim() === '') return 'Sem prateleira vinculada';
+    const termo = pratIdOrCode.trim().toLowerCase();
+    const p = prateleiras.find(
+      (x) =>
+        x.id?.toLowerCase() === termo ||
+        x.codigoLocalizacao?.toLowerCase() === termo ||
+        (x as any).codigo_localizacao?.toLowerCase() === termo
+    );
+    if (p) {
+      return `Prateleira ${p.codigoLocalizacao} (${p.zona || 'Depósito'})`;
+    }
+    return `Prateleira ${pratIdOrCode.trim()}`;
   };
 
   return (

@@ -3,6 +3,7 @@ import { LogIn, LogOut, RotateCcw, ArrowRightLeft } from 'lucide-react';
 import { Header } from '../../components/common/Header';
 import { useAuthStore } from '../../store/useAuthStore';
 import { movimentacaoService } from '../../services/movimentacaoService';
+import { StorageAdapter } from '../../services/offline/storageAdapter';
 import type { MovimentacaoModel } from '../../types/models';
 
 interface MovimentacoesScreenProps {
@@ -11,20 +12,34 @@ interface MovimentacoesScreenProps {
 
 export const MovimentacoesScreen: React.FC<MovimentacoesScreenProps> = ({ onBack }) => {
   const { session, funcionario, empresaId } = useAuthStore();
-  const empId = empresaId || session?.empresaId || funcionario?.empresa_id || '';
+  const [empresaAtivaId, setEmpresaAtivaId] = useState<string>(
+    empresaId || session?.empresaId || (session as any)?.empresa_id || funcionario?.empresa_id || ''
+  );
+  const empId = empresaAtivaId || empresaId || session?.empresaId || (session as any)?.empresa_id || funcionario?.empresa_id || '';
 
   const [movimentacoes, setMovimentacoes] = useState<MovimentacaoModel[]>([]);
   const [filtroTipo, setFiltroTipo] = useState<string>('TODOS');
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
+  useEffect(() => {
+    if (!empId) {
+      StorageAdapter.getItem('auth_empresa_id').then((savedId) => {
+        if (savedId && savedId.trim() !== '') {
+          setEmpresaAtivaId(savedId.trim());
+        }
+      });
+    }
+  }, [empId]);
+
   const carregar = async () => {
-    if (!empId) return;
     setIsLoading(true);
     try {
       const tipo = filtroTipo === 'TODOS' ? undefined : filtroTipo;
       const list = await movimentacaoService.getMovimentacoesRecentes(empId, tipo, 50);
       setMovimentacoes(list);
-    } catch (_) {
+    } catch (err) {
+      console.warn('Erro ao carregar movimentações:', err);
+      setMovimentacoes([]);
     } finally {
       setIsLoading(false);
     }

@@ -3,6 +3,7 @@ import { parseFuncionarioFromDb } from '../types/models';
 import { supabase } from './supabase/client';
 import { syncService } from './offline/syncService';
 import type { SyncService } from './offline/syncService';
+import { StorageAdapter } from './offline/storageAdapter';
 import { sha256 } from '../utils/crypto';
 
 export interface ValidacaoSenhaResponse {
@@ -26,7 +27,25 @@ export class FuncionarioService {
   }
 
   async listarFuncionarios(empresaId?: string): Promise<FuncionarioModel[]> {
-    const empLimpo = (empresaId || '').trim();
+    let empLimpo = (empresaId || '').trim();
+
+    // Se empresaId não foi fornecido ou não é UUID válido, recuperar da sessão salva
+    if (!this.isValidUuid(empLimpo)) {
+      try {
+        const savedEmpId = await StorageAdapter.getItem('auth_empresa_id');
+        if (this.isValidUuid(savedEmpId)) {
+          empLimpo = savedEmpId!.trim();
+        } else {
+          const rawSess = await StorageAdapter.getItem('auth_session');
+          if (rawSess) {
+            const s = JSON.parse(rawSess);
+            const sEmp = s.empresaId || s.empresa_id;
+            if (this.isValidUuid(sEmp)) empLimpo = sEmp.trim();
+          }
+        }
+      } catch (_) {}
+    }
+
     const isUuid = this.isValidUuid(empLimpo);
 
     try {
@@ -43,36 +62,30 @@ export class FuncionarioService {
         }
       }
 
-      // 2. Fallback query direta (somente com filtro se for UUID válido para não estourar erro 400 no PostgreSQL)
-      let query = this.client
-        .from('funcionarios')
-        .select('*')
-        .eq('excluido', false);
-
+      // 2. Fallback query direta caso ambiente permita
       if (isUuid) {
-        query = query.eq('empresa_id', empLimpo);
-      }
+        const { data, error } = await this.client
+          .from('funcionarios')
+          .select('*')
+          .eq('excluido', false)
+          .eq('empresa_id', empLimpo)
+          .order('nome', { ascending: true });
 
-      query = query.order('nome', { ascending: true });
-
-      const { data, error } = await query;
-      if (!error && Array.isArray(data) && data.length > 0) {
-        const list = data.map((json: Record<string, any>) => parseFuncionarioFromDb(json));
-        await this.sync.salvarFuncionariosCache(list, empLimpo || 'default');
-        return list;
-      }
-
-      if (error) {
-        throw new Error(error.message);
+        if (!error && Array.isArray(data) && data.length > 0) {
+          const list = data.map((json: Record<string, any>) => parseFuncionarioFromDb(json));
+          await this.sync.salvarFuncionariosCache(list, empLimpo || 'default');
+          return list;
+        }
       }
 
       return [];
     } catch (err: unknown) {
+      console.warn('Aviso ao listar funcionários:', err);
       const cache = await this.sync.obterFuncionariosCache(empLimpo || 'default');
       if (cache.length > 0) {
         return cache;
       }
-      throw new Error(`Erro ao listar funcionários (sem conexão): ${err instanceof Error ? err.message : String(err)}`);
+      return [];
     }
   }
 

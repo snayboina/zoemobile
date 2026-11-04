@@ -16,6 +16,7 @@ export const MovimentacoesScreen: React.FC<MovimentacoesScreenProps> = ({ onBack
     empresaId || session?.empresaId || (session as any)?.empresa_id || funcionario?.empresa_id || ''
   );
   const empId = empresaAtivaId || empresaId || session?.empresaId || (session as any)?.empresa_id || funcionario?.empresa_id || '';
+  const operadorLogado = funcionario?.nome || session?.nome || 'Operador';
 
   const [movimentacoes, setMovimentacoes] = useState<MovimentacaoModel[]>([]);
   const [filtroTipo, setFiltroTipo] = useState<string>('TODOS');
@@ -113,6 +114,20 @@ export const MovimentacoesScreen: React.FC<MovimentacoesScreenProps> = ({ onBack
                   })
                 : '';
 
+              const operadorExibicao =
+                mov.usuarioNome &&
+                mov.usuarioNome !== mov.nomeFuncionario &&
+                mov.usuarioNome !== 'Não informado'
+                  ? mov.usuarioNome
+                  : operadorLogado;
+
+              const colabAtendido =
+                mov.nomeFuncionario &&
+                mov.nomeFuncionario !== 'Não informado' &&
+                mov.nomeFuncionario !== operadorExibicao
+                  ? mov.nomeFuncionario
+                  : null;
+
               return (
                 <div key={idx} className="movimentacao-card">
                   <div className="mov-icon-circle" style={{ backgroundColor: meta.bg }}>
@@ -124,8 +139,13 @@ export const MovimentacoesScreen: React.FC<MovimentacoesScreenProps> = ({ onBack
                       <span className="mov-tipo-tag" style={{ color: meta.color }}>
                         {meta.label}: <strong>{mov.quantidade} UN</strong>
                       </span>
-                      {mov.nomeFuncionario && (
-                        <span className="mov-funcionario-tag">Func: {mov.nomeFuncionario}</span>
+                      <span className="mov-operador-tag">
+                        Operador: <strong>{operadorExibicao}</strong>
+                      </span>
+                      {colabAtendido && (
+                        <span className="mov-colab-tag">
+                          • Colab: <strong>{colabAtendido}</strong>
+                        </span>
                       )}
                     </div>
                     {dataFormatada && <div className="mov-date">{dataFormatada}</div>}

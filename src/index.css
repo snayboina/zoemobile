@@ -1251,9 +1251,30 @@ body, html {
 .mov-meta-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  flex-wrap: wrap;
+  gap: 6px 8px;
   font-size: 12px;
   margin-top: 3px;
+}
+
+.mov-operador-tag {
+  color: #334155;
+  font-size: 12px;
+}
+
+.mov-operador-tag strong {
+  color: #0F172A;
+  font-weight: 600;
+}
+
+.mov-colab-tag {
+  color: #64748B;
+  font-size: 11.5px;
+}
+
+.mov-colab-tag strong {
+  color: #1E293B;
+  font-weight: 600;
 }
 
 .mov-date {

@@ -81,38 +81,50 @@ export const DevolucaoScreen: React.FC<DevolucaoScreenProps> = ({ onBack }) => {
   }, [funcionarios]);
 
   const produtoOptions: SearchableOption[] = useMemo(() => {
-    return produtos.map((p) => {
+    // Regra estrita: se não há funcionário selecionado ou não há pendências, não mostra nenhum produto no dropdown
+    if (!funcionarioSelecionado || pendencias.length === 0) {
+      return [];
+    }
+
+    return pendencias.map((pend) => {
+      const prodInfo = produtos.find((x) => x.id === pend.produto_id);
       const extraBadges: Array<{ text: string; variant?: 'neutral' | 'success' | 'warning' | 'danger' | 'info' }> = [];
 
-      if (p.conformidade?.numero_ca) {
+      const caNumero = pend.ca_numero || prodInfo?.caNumero || prodInfo?.conformidade?.numero_ca;
+      if (caNumero) {
         extraBadges.push({
-          text: `CA: ${p.conformidade.numero_ca}`,
+          text: `CA: ${caNumero}`,
           variant: 'warning',
         });
       }
 
       return {
-        value: p.id,
-        label: p.nome,
-        code: p.codigo ? p.codigo : undefined,
-        sublabel: p.categoria || undefined,
+        value: pend.produto_id,
+        label: pend.nome,
+        code: prodInfo?.codigo || undefined,
+        sublabel: pend.categoria || prodInfo?.categoria || undefined,
         type: 'produto' as const,
         badge: {
-          text: `Estoque Atual: ${p.estoqueAtual ?? 0} UN`,
-          variant: (p.estoqueAtual ?? 0) <= 0 ? 'danger' : 'neutral',
+          text: `Pendente: ${pend.saldo_pendente} ${pend.unidade || 'UN'}`,
+          variant: 'warning',
         },
         extraBadges,
       };
     });
-  }, [produtos]);
+  }, [funcionarioSelecionado, pendencias, produtos]);
 
   const carregarPendencias = async (funcId: string) => {
     setIsLoadingPendencias(true);
+    setProdutoSelecionado(null);
     try {
       const pends = await movimentacaoService.getPendenciasFuncionario(funcId, empId);
       setPendencias(pends);
+      if (pends.length === 0) {
+        setProdutoSelecionado(null);
+      }
     } catch (_) {
       setPendencias([]);
+      setProdutoSelecionado(null);
     } finally {
       setIsLoadingPendencias(false);
     }
@@ -174,6 +186,10 @@ export const DevolucaoScreen: React.FC<DevolucaoScreenProps> = ({ onBack }) => {
 
     if (!funcionarioSelecionado) {
       setMensagemErro('Selecione um colaborador primeiro.');
+      return;
+    }
+    if (pendencias.length === 0) {
+      setMensagemErro('Este colaborador não possui nenhum produto pendente para devolução.');
       return;
     }
     if (!produtoSelecionado) {
@@ -257,6 +273,9 @@ export const DevolucaoScreen: React.FC<DevolucaoScreenProps> = ({ onBack }) => {
           funcionarioId: funcionarioSelecionado.id,
           funcionarioNome: funcionarioSelecionado.nome,
           funcionarioCracha: funcionarioSelecionado.cracha,
+          usuarioId: currentUser?.id,
+          usuarioNome: currentUser?.nome,
+          usuarioMatricula: currentUser?.cracha,
           deviceId: device.deviceId,
           appVersion: device.appVersion,
         },
@@ -355,10 +374,14 @@ export const DevolucaoScreen: React.FC<DevolucaoScreenProps> = ({ onBack }) => {
               onChange={(selectedId) => {
                 const f = funcionarios.find((x) => x.id === selectedId);
                 setFuncionarioSelecionado(f || null);
+                setProdutoSelecionado(null);
+                setQuantidade(1);
                 if (f) {
                   setCrachaBusca(f.cracha);
                   carregarPendencias(f.id);
                   setMensagemErro(null);
+                } else {
+                  setPendencias([]);
                 }
               }}
               disabled={isLoadingFuncionarios}
@@ -438,16 +461,33 @@ export const DevolucaoScreen: React.FC<DevolucaoScreenProps> = ({ onBack }) => {
           <div className="form-group">
             <label className="field-label">Produto *</label>
             <SearchableSelect
-              title="Selecione o Produto"
-              placeholder="Selecione o produto a devolver"
-              searchPlaceholder="Pesquisar por nome, código ou CA..."
-              emptyMessage="Nenhum produto encontrado com este termo."
+              title="Selecione o Produto a Devolver"
+              placeholder={
+                !funcionarioSelecionado
+                  ? 'Selecione o colaborador primeiro'
+                  : pendencias.length === 0
+                  ? 'Nenhum produto sob posse deste colaborador'
+                  : 'Selecione o produto a devolver'
+              }
+              searchPlaceholder="Pesquisar entre os produtos pendentes..."
+              emptyMessage={
+                !funcionarioSelecionado
+                  ? 'Selecione o colaborador primeiro.'
+                  : 'Nenhum produto pendente para devolução deste colaborador.'
+              }
               options={produtoOptions}
               value={produtoSelecionado?.id || ''}
               onChange={(selectedId) => {
-                const found = produtos.find((p) => p.id === selectedId);
-                setProdutoSelecionado(found || null);
+                const pend = pendencias.find((x) => x.produto_id === selectedId);
+                if (pend) {
+                  handleSelecionarPendencia(pend);
+                } else {
+                  const found = produtos.find((p) => p.id === selectedId);
+                  setProdutoSelecionado(found || null);
+                  setQuantidade(1);
+                }
               }}
+              disabled={isLoading || !funcionarioSelecionado || pendencias.length === 0}
               required
             />
           </div>
@@ -455,6 +495,11 @@ export const DevolucaoScreen: React.FC<DevolucaoScreenProps> = ({ onBack }) => {
           <QuantitySelector
             label="Quantidade devolvida *"
             value={quantidade}
+            max={
+              produtoSelecionado
+                ? pendencias.find((p) => p.produto_id === produtoSelecionado.id)?.saldo_pendente
+                : undefined
+            }
             onChange={setQuantidade}
           />
 
@@ -472,7 +517,7 @@ export const DevolucaoScreen: React.FC<DevolucaoScreenProps> = ({ onBack }) => {
           <button
             type="submit"
             className="btn-submit-action"
-            disabled={isLoading}
+            disabled={isLoading || !funcionarioSelecionado || !produtoSelecionado || pendencias.length === 0}
             style={{ marginTop: '16px' }}
           >
             {isLoading ? 'Registrando devolução...' : 'Confirmar Devolução'}

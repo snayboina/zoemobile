@@ -11,6 +11,9 @@ export interface AuditContext {
   funcionarioId?: string;
   funcionarioNome?: string;
   funcionarioCracha?: string;
+  usuarioId?: string;
+  usuarioNome?: string;
+  usuarioMatricula?: string;
   deviceId?: string;
   appVersion?: string;
   osPlatform?: string;
@@ -64,8 +67,8 @@ export class MovimentacaoService {
       id: movimentacao.id || `mov_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
       funcionarioId: movimentacao.funcionarioId || audit.funcionarioId,
       empresaId: audit.empresaId,
-      usuarioNome: audit.funcionarioNome,
-      usuarioMatricula: audit.funcionarioCracha,
+      usuarioNome: audit.usuarioNome || movimentacao.usuarioNome || audit.funcionarioNome,
+      usuarioMatricula: audit.usuarioMatricula || movimentacao.usuarioMatricula || audit.funcionarioCracha,
       deviceId: audit.deviceId,
       appVersion: audit.appVersion,
       osPlatform: audit.osPlatform,
@@ -212,6 +215,37 @@ export class MovimentacaoService {
           }
           return filtrados.slice(0, limit).map((json: any) => parseMovimentacaoFromDb(json));
         }
+      }
+
+      // 3. Fallback: consulta direta na tabela movimentacoes
+      let directQuery = this.client
+        .from('movimentacoes')
+        .select(`
+          id, produto_id, funcionario_id, prateleira_id, tipo, quantidade,
+          observacao, tipo_entrada, created_at, usuario_nome, usuario_matricula,
+          empresa_id,
+          produtos (nome),
+          funcionarios (nome, cracha)
+        `);
+
+      if (empAlvo) {
+        directQuery = directQuery.eq('empresa_id', empAlvo);
+      }
+
+      if (tipo && tipo.trim().length > 0 && tipo !== 'TODOS') {
+        if (tipo === 'SA') {
+          directQuery = directQuery.in('tipo', ['SA', 'CONSUMO']);
+        } else {
+          directQuery = directQuery.eq('tipo', tipo);
+        }
+      }
+
+      const { data: directData, error: directErr } = await directQuery
+        .order('created_at', { ascending: false })
+        .limit(limit);
+
+      if (!directErr && Array.isArray(directData) && directData.length > 0) {
+        return directData.map((json: Record<string, any>) => parseMovimentacaoFromDb(json));
       }
 
       return [];

@@ -180,7 +180,7 @@ export const DevolucaoScreen: React.FC<DevolucaoScreenProps> = ({ onBack }) => {
     setQuantidade(p.saldo_pendente > 0 ? p.saldo_pendente : 1);
   };
 
-  const handleIniciarDevolucao = (e: React.FormEvent) => {
+  const handleIniciarDevolucao = async (e: React.FormEvent) => {
     e.preventDefault();
     setMensagemErro(null);
 
@@ -202,6 +202,11 @@ export const DevolucaoScreen: React.FC<DevolucaoScreenProps> = ({ onBack }) => {
     }
 
     setPinError(null);
+    try {
+      const temSenhaReal = await funcionarioService.verificarSeTemSenha(funcionarioSelecionado.id);
+      setFuncionarioSelecionado((prev) => (prev ? { ...prev, tem_senha_movimentacao: temSenhaReal } : null));
+    } catch (_) {}
+
     setModalPinOpen(true);
   };
 
@@ -211,42 +216,31 @@ export const DevolucaoScreen: React.FC<DevolucaoScreenProps> = ({ onBack }) => {
     setPinError(null);
 
     try {
-      // 1. SE A SENHA FOI RESETADA NO PAINEL WEB: CADASTRA A NOVA SENHA!
-      if (!funcionarioSelecionado.tem_senha_movimentacao) {
-        const resCadastro = await funcionarioService.cadastrarSenhaMovimentacaoInicial(
-          funcionarioSelecionado.id,
-          pinDigitado
-        );
-        if (!resCadastro.success) {
-          if (resCadastro.message && resCadastro.message.toLowerCase().includes('já possui')) {
-            setFuncionarioSelecionado((prev) => (prev ? { ...prev, tem_senha_movimentacao: true } : null));
-            setPinError('Colaborador já possui senha cadastrada. Digite o PIN de 6 dígitos.');
-            setIsValidatingPin(false);
-            return;
-          }
-          setPinError(resCadastro.message || 'Erro ao cadastrar nova senha.');
-          setIsValidatingPin(false);
-          return;
-        }
-        setFuncionarioSelecionado((prev) => (prev ? { ...prev, tem_senha_movimentacao: true } : null));
-      } else {
-        // 2. SE JÁ POSSUI SENHA: VALIDA NORMALMENTE
-        const validacao = await funcionarioService.validarSenhaMovimentacao(
-          funcionarioSelecionado.id,
-          pinDigitado
-        );
+      const validacao = await funcionarioService.validarSenhaMovimentacao(
+        funcionarioSelecionado.id,
+        pinDigitado
+      );
 
-        if (!validacao.success) {
-          if (validacao.message && validacao.message.toLowerCase().includes('sem senha')) {
-            setFuncionarioSelecionado((prev) => (prev ? { ...prev, tem_senha_movimentacao: false } : null));
-            setPinError('Senha foi resetada pelo administrador. Digite uma nova senha de 6 dígitos para cadastrar.');
+      if (!validacao.success) {
+        const msg = (validacao.message || '').toLowerCase();
+        if (msg.includes('não possui') || msg.includes('sem senha') || msg.includes('cadastrada')) {
+          const resCadastro = await funcionarioService.cadastrarSenhaMovimentacaoInicial(
+            funcionarioSelecionado.id,
+            pinDigitado
+          );
+          if (!resCadastro.success && !resCadastro.message?.toLowerCase().includes('já possui')) {
+            setPinError(resCadastro.message || 'Erro ao cadastrar nova senha.');
             setIsValidatingPin(false);
             return;
           }
+          setFuncionarioSelecionado((prev) => (prev ? { ...prev, tem_senha_movimentacao: true } : null));
+        } else {
           setPinError(validacao.message || 'Senha incorreta.');
           setIsValidatingPin(false);
           return;
         }
+      } else {
+        setFuncionarioSelecionado((prev) => (prev ? { ...prev, tem_senha_movimentacao: true } : null));
       }
 
       setModalPinOpen(false);
@@ -380,6 +374,9 @@ export const DevolucaoScreen: React.FC<DevolucaoScreenProps> = ({ onBack }) => {
                   setCrachaBusca(f.cracha);
                   carregarPendencias(f.id);
                   setMensagemErro(null);
+                  funcionarioService.verificarSeTemSenha(f.id).then((temSenha) => {
+                    setFuncionarioSelecionado((prev) => (prev && prev.id === f.id ? { ...prev, tem_senha_movimentacao: temSenha } : prev));
+                  });
                 } else {
                   setPendencias([]);
                 }

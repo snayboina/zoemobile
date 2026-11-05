@@ -30,7 +30,7 @@ export const PinModal: React.FC<PinModalProps> = ({
     if (isOpen) {
       setPin('');
     }
-  }, [isOpen]);
+  }, [isOpen, title]);
 
   if (!isOpen) return null;
 

@@ -42,6 +42,7 @@ export const SaidaScreen: React.FC<SaidaScreenProps> = ({ onBack }) => {
     empresaId || session?.empresaId || (session as any)?.empresa_id || funcionario?.empresa_id || ''
   );
   const empId = empresaAtivaId || empresaId || session?.empresaId || (session as any)?.empresa_id || funcionario?.empresa_id || '';
+  const operadorNome = funcionario?.nome || session?.nome || 'Operador';
 
   // Resgata auth_empresa_id do storage local caso a sessão esteja sem o campo explícito
   useEffect(() => {
@@ -83,6 +84,7 @@ export const SaidaScreen: React.FC<SaidaScreenProps> = ({ onBack }) => {
   });
 
   const [modalPinOpen, setModalPinOpen] = useState<boolean>(false);
+  const [pinStep, setPinStep] = useState<'OPERADOR' | 'FUNCIONARIO'>('OPERADOR');
   const [pinError, setPinError] = useState<string | null>(null);
   const [isValidatingPin, setIsValidatingPin] = useState<boolean>(false);
 
@@ -129,6 +131,7 @@ export const SaidaScreen: React.FC<SaidaScreenProps> = ({ onBack }) => {
       isMounted = false;
     };
   }, [empId]);
+
 
   // Carregar itens em posse do colaborador que NÃO são de consumo
   const carregarPendenciasColaborador = useCallback(
@@ -348,7 +351,7 @@ export const SaidaScreen: React.FC<SaidaScreenProps> = ({ onBack }) => {
     setCarrinho((prev) => prev.filter((_, idx) => idx !== index));
   };
 
-  const handleIniciarFinalizacao = () => {
+  const handleIniciarFinalizacao = async () => {
     if (carrinho.length === 0) {
       setMensagemErro('Adicione pelo menos um produto ao carrinho.');
       return;
@@ -358,6 +361,14 @@ export const SaidaScreen: React.FC<SaidaScreenProps> = ({ onBack }) => {
       return;
     }
     setPinError(null);
+    setPinStep('OPERADOR');
+
+    // Sincroniza em tempo real se a senha foi resetada no painel web ou se já existe!
+    try {
+      const temSenhaReal = await funcionarioService.verificarSeTemSenha(funcionarioSelecionado.id);
+      setFuncionarioSelecionado((prev) => (prev ? { ...prev, tem_senha_movimentacao: temSenhaReal } : null));
+    } catch (_) {}
+
     setModalPinOpen(true);
   };
 
@@ -366,48 +377,111 @@ export const SaidaScreen: React.FC<SaidaScreenProps> = ({ onBack }) => {
     setIsValidatingPin(true);
     setPinError(null);
 
+    const operadorId = funcionario?.id || session?.id || '';
+
     try {
-      // 1. SE A SENHA FOI RESETADA NO PAINEL WEB: CADASTRA A NOVA SENHA!
+      // ==============================================================
+      // ETAPA 1: SENHA DE CONFIRMAÇÃO DO OPERADOR LOGADO NO APLICATIVO
+      // ==============================================================
+      if (pinStep === 'OPERADOR') {
+        if (!operadorId) {
+          // Fallback caso não haja ID do operador carregado
+          setPinStep('FUNCIONARIO');
+          setIsValidatingPin(false);
+          return;
+        }
+
+        const validacao = await funcionarioService.validarSenhaMovimentacao(
+          operadorId,
+          pinDigitado
+        );
+
+        if (!validacao.success) {
+          // Se o operador ainda não possuía senha_movimentacao_hash gravada, grava automaticamente
+          if (validacao.message && validacao.message.toLowerCase().includes('sem senha')) {
+            const resCadastro = await funcionarioService.cadastrarSenhaMovimentacaoInicial(
+              operadorId,
+              pinDigitado
+            );
+            if (!resCadastro.success && !resCadastro.message?.toLowerCase().includes('já possui')) {
+              setPinError(resCadastro.message || 'Erro ao registrar senha do operador.');
+              setIsValidatingPin(false);
+              return;
+            }
+          } else {
+            setPinError(validacao.message || 'Senha do operador incorreta.');
+            setIsValidatingPin(false);
+            return;
+          }
+        }
+
+        // Senha do operador confirmada com sucesso! Avança para a Etapa 2 (Colaborador Receptor)
+        setPinError(null);
+        setPinStep('FUNCIONARIO');
+        setIsValidatingPin(false);
+        return;
+      }
+
+      // ==============================================================
+      // ETAPA 2: SENHA DE CONFIRMAÇÃO DO COLABORADOR RECEPTOR
+      // ==============================================================
       if (!funcionarioSelecionado.tem_senha_movimentacao) {
+        // Se a senha foi resetada no painel web ou é novo cadastro: grava a nova senha!
         const resCadastro = await funcionarioService.cadastrarSenhaMovimentacaoInicial(
           funcionarioSelecionado.id,
           pinDigitado
         );
         if (!resCadastro.success) {
           if (resCadastro.message && resCadastro.message.toLowerCase().includes('já possui')) {
-            setFuncionarioSelecionado((prev) => (prev ? { ...prev, tem_senha_movimentacao: true } : null));
-            setPinError('Colaborador já possui senha cadastrada. Digite o PIN de 6 dígitos.');
+            // Se o banco indicar que já possui senha, valida imediatamente com o PIN digitado
+            const valFallback = await funcionarioService.validarSenhaMovimentacao(
+              funcionarioSelecionado.id,
+              pinDigitado
+            );
+            if (!valFallback.success) {
+              setPinError(valFallback.message || 'Senha do colaborador incorreta.');
+              setIsValidatingPin(false);
+              return;
+            }
+          } else {
+            setPinError(resCadastro.message || 'Erro ao cadastrar senha do colaborador.');
             setIsValidatingPin(false);
             return;
           }
-          setPinError(resCadastro.message || 'Erro ao cadastrar nova senha.');
-          setIsValidatingPin(false);
-          return;
         }
-        // Atualiza o estado local para já reconhecer a nova senha
         setFuncionarioSelecionado((prev) => (prev ? { ...prev, tem_senha_movimentacao: true } : null));
       } else {
-        // 2. SE JÁ POSSUI SENHA: VALIDA NORMALMENTE
-        const validacao = await funcionarioService.validarSenhaMovimentacao(
+        // Se o colaborador já possui senha gravada: valida normalmente
+        const validacaoFunc = await funcionarioService.validarSenhaMovimentacao(
           funcionarioSelecionado.id,
           pinDigitado
         );
 
-        if (!validacao.success) {
-          // Se o banco informar que a senha foi resetada para NULL:
-          if (validacao.message && validacao.message.toLowerCase().includes('sem senha')) {
+        if (!validacaoFunc.success) {
+          const msg = (validacaoFunc.message || '').toLowerCase();
+          if (msg.includes('não possui') || msg.includes('sem senha') || msg.includes('cadastrada')) {
+            // Se o painel web resetou recentemente: permite cadastrar na hora
             setFuncionarioSelecionado((prev) => (prev ? { ...prev, tem_senha_movimentacao: false } : null));
-            setPinError('Senha foi resetada pelo administrador. Digite uma nova senha de 6 dígitos para cadastrar.');
+            const resCadastro = await funcionarioService.cadastrarSenhaMovimentacaoInicial(
+              funcionarioSelecionado.id,
+              pinDigitado
+            );
+            if (!resCadastro.success) {
+              setPinError('Senha foi resetada pelo administrador. Digite uma nova senha de 6 dígitos.');
+              setIsValidatingPin(false);
+              return;
+            }
+          } else {
+            setPinError(validacaoFunc.message || 'Senha do colaborador incorreta.');
             setIsValidatingPin(false);
             return;
           }
-          setPinError(validacao.message || 'Senha de movimentação incorreta.');
-          setIsValidatingPin(false);
-          return;
         }
       }
 
+      // Ambas as senhas validadas com sucesso!
       setModalPinOpen(false);
+      setPinStep('OPERADOR');
       setIsLoadingGeral(true);
 
       const currentUser = funcionario;
@@ -556,6 +630,9 @@ export const SaidaScreen: React.FC<SaidaScreenProps> = ({ onBack }) => {
                 if (f) {
                   setCrachaBusca(f.cracha);
                   setMensagemErro(null);
+                  funcionarioService.verificarSeTemSenha(f.id).then((temSenha) => {
+                    setFuncionarioSelecionado((prev) => (prev && prev.id === f.id ? { ...prev, tem_senha_movimentacao: temSenha } : prev));
+                  });
                 }
               }}
               disabled={isLoadingFuncionarios}
@@ -852,24 +929,33 @@ export const SaidaScreen: React.FC<SaidaScreenProps> = ({ onBack }) => {
         onClose={() => setModalEpiBlocked({ isOpen: false, title: '', message: '' })}
       />
 
-      {/* MODAL DE CONFIRMAÇÃO OU CADASTRO DE SENHA / PIN DE 6 DÍGITOS */}
+      {/* MODAL DE CONFIRMAÇÃO DUPLA: PRIMEIRO OPERADOR, SEGUNDO FUNCIONÁRIO RECEPTOR */}
       <PinModal
+        key={pinStep}
         isOpen={modalPinOpen}
         title={
-          funcionarioSelecionado?.tem_senha_movimentacao
-            ? 'Confirmação com PIN'
-            : 'Cadastrar Nova Senha'
+          pinStep === 'OPERADOR'
+            ? '1/2 • Senha do Operador'
+            : funcionarioSelecionado?.tem_senha_movimentacao
+            ? '2/2 • Senha do Funcionário'
+            : '2/2 • Cadastrar Senha do Funcionário'
         }
         subtitle={
-          funcionarioSelecionado?.tem_senha_movimentacao
-            ? `Digite a senha de 6 dígitos de ${funcionarioSelecionado.nome} para autorizar a retirada:`
-            : `Crie uma senha de 6 dígitos para ${funcionarioSelecionado?.nome || 'o colaborador'} autorizar retiradas:`
+          pinStep === 'OPERADOR'
+            ? `Digite a sua senha de 6 dígitos (${operadorNome}) para autorizar a saída:`
+            : funcionarioSelecionado?.tem_senha_movimentacao
+            ? `Digite a senha de 6 dígitos do Funcionário (${funcionarioSelecionado?.nome}) para confirmar o recebimento:`
+            : `Crie uma senha de 6 dígitos para o Funcionário (${funcionarioSelecionado?.nome || 'o colaborador'}) confirmar o recebimento:`
         }
         errorMessage={pinError}
         isLoading={isValidatingPin}
         onConfirm={handleConfirmarComPin}
         onClose={() => {
-          if (!isValidatingPin) setModalPinOpen(false);
+          if (!isValidatingPin) {
+            setModalPinOpen(false);
+            setPinStep('OPERADOR');
+            setPinError(null);
+          }
         }}
       />
 

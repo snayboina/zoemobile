@@ -107,7 +107,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           empresaNome: savedSession.empresaNome || (savedSession as any).empresa_nome,
           empresa_id: sessionEmpId || '',
           permite_login_app: true,
-          tem_senha_movimentacao: false,
+          tem_senha_movimentacao: Boolean(
+            (savedSession as any).tem_senha_movimentacao ??
+            (savedSession as any).temSenhaMovimentacao ??
+            (savedSession as any).senha_movimentacao_hash ??
+            true
+          ),
         };
 
         set({
@@ -179,7 +184,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           empresaNome: session.empresaNome || (session as any).empresa_nome,
           empresa_id: empId || '',
           permite_login_app: true,
-          tem_senha_movimentacao: false,
+          tem_senha_movimentacao: Boolean(
+            (session as any).tem_senha_movimentacao ??
+            (session as any).temSenhaMovimentacao ??
+            (session as any).senha_movimentacao_hash ??
+            true
+          ),
         };
 
         await StorageAdapter.setItem('auth_session', JSON.stringify(session));

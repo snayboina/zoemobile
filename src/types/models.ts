@@ -150,7 +150,18 @@ export interface FuncionarioModel {
 export function parseFuncionarioFromDb(json: Record<string, any>): FuncionarioModel {
   const ativo = json.excluido !== undefined ? !json.excluido : (json.ativo ?? true);
   const empresaId = json.empresa_id || json.empresaId || '';
-  const senha = json.senha_movimentacao_hash || json.senha_movimentacao || json.senhaMovimentacao || null;
+  const senha = json.senha_movimentacao_hash || json.senha_movimentacao || json.senhaMovimentacao || json.pin_hash || null;
+
+  const temSenha =
+    typeof json.tem_senha_movimentacao === 'boolean'
+      ? json.tem_senha_movimentacao
+      : typeof json.temSenhaMovimentacao === 'boolean'
+      ? json.temSenhaMovimentacao
+      : typeof json.tem_senha === 'boolean'
+      ? json.tem_senha
+      : senha !== null && senha !== undefined
+      ? Boolean(senha && senha.length > 0)
+      : true;
 
   return {
     id: json.id || '',
@@ -164,7 +175,7 @@ export function parseFuncionarioFromDb(json: Record<string, any>): FuncionarioMo
     senhaMovimentacao: senha,
     empresa_id: empresaId,
     permite_login_app: json.permite_login_app ?? true,
-    tem_senha_movimentacao: Boolean(senha && senha.length > 0),
+    tem_senha_movimentacao: temSenha,
     cargo: json.cargo || json.departamento,
     created_at: json.created_at,
   };

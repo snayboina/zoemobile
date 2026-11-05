@@ -153,12 +153,12 @@ export class FuncionarioService {
 
       const { data: func, error: funcError } = await this.client
         .from('funcionarios')
-        .select('senha_movimentacao_hash')
+        .select('senha_movimentacao_hash, pin_hash')
         .eq('id', funcionarioId)
         .maybeSingle();
 
       if (!funcError && func) {
-        const dbHash = func.senha_movimentacao_hash;
+        const dbHash = func.senha_movimentacao_hash || func.pin_hash;
         if (!dbHash) {
           return { success: false, message: 'Colaborador não possui senha cadastrada.' };
         }
@@ -207,6 +207,39 @@ export class FuncionarioService {
       return { success: true, message: 'Senha cadastrada com sucesso!' };
     } catch (err: unknown) {
       return { success: false, message: err instanceof Error ? err.message : String(err) };
+    }
+  }
+
+  async verificarSeTemSenha(funcionarioId: string): Promise<boolean> {
+    try {
+      // 1. Tentar leitura direta da coluna senha_movimentacao_hash
+      const { data, error } = await this.client
+        .from('funcionarios')
+        .select('senha_movimentacao_hash')
+        .eq('id', funcionarioId)
+        .maybeSingle();
+
+      if (!error && data) {
+        return Boolean(data.senha_movimentacao_hash && String(data.senha_movimentacao_hash).trim().length > 0);
+      }
+
+      // 2. Se bloqueado por RLS, usar a RPC validar_senha_movimentacao como probe
+      const { data: rpcData } = await this.client.rpc('validar_senha_movimentacao', {
+        p_funcionario_id: funcionarioId,
+        p_senha_hash: 'check_probe',
+      });
+
+      if (rpcData && typeof rpcData === 'object') {
+        const msg = String(rpcData.message || rpcData.mensagem || '').toLowerCase();
+        if (msg.includes('sem senha') || msg.includes('não possui') || msg.includes('cadastrada')) {
+          return false;
+        }
+        return true;
+      }
+
+      return false;
+    } catch {
+      return false;
     }
   }
 }
